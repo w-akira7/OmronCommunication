@@ -12,13 +12,15 @@ namespace OmronCommunication.PLC
     {
         //public PLCBase() { }
 
-        public abstract bool[] ReadBool(string address, ushort length);
 
         public abstract bool ReadBool(string address);
+        public abstract bool[] ReadBool(string address, ushort length);
 
         public abstract int ReadInt(string address);
+        public abstract int[] ReadInt(string address, ushort length);
 
         public abstract float ReadFoalt(string address);
+        public abstract float[] ReadFoalt(string address, ushort length);
 
         public abstract OperateResult WriteBool(string address, bool value);
 
@@ -26,6 +28,5 @@ namespace OmronCommunication.PLC
 
         public abstract OperateResult WriteFoalt(string address, float value);
 
-        public abstract OperateResult<byte[]> Read(string address, ushort length);
     }
 }

@@ -16,6 +16,12 @@ namespace OmronCommunication.Profinet
         public FinsCommand() { }
 
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="address"></param>
+        /// <returns></returns>
+        /// <exception cref="Exception"></exception>
         private OperateResult<FinsDataTypes> AnalyzeAddressType(string address)
         {
             var result = new OperateResult<FinsDataTypes>();
@@ -67,8 +73,8 @@ namespace OmronCommunication.Profinet
         /// </summary>
         /// <param name="address">目标起始地址</param>
         /// <param name="isBit">是否位操作</param>
-        /// <returns></returns>
-        /// <exception cref="Exception"></exception>
+        /// <returns>地址码：一个4字节的字节数组,包括 I/O Memory area code 和 Beginning address</returns>
+        /// <exception cref="Exception"></exception> 
         private OperateResult<byte[]> AnalyzeAddress(string address, bool isBit)
         {   
             var result = new OperateResult<byte[]>();
@@ -97,6 +103,26 @@ namespace OmronCommunication.Profinet
         }
 
         /// <summary>
+        /// 将命令与 FINS 头组合成完整的 FINS 数据包
+        /// </summary>
+        /// <param name="command">command code and text</param>
+        /// <returns>完整的可发送的FINS包</returns>
+        private byte[] BuildCompleteCommand(byte[] command)
+        {
+            //build fins header
+            var header = new byte[10] { ICF, RSV, GCT, DNA, DA1, DA2, SNA, SA1, SA2, SID };
+
+            //build complete command 
+            var result = new byte[10 + command.Length];
+            Array.Copy(header, 0, result, 0, 10);
+            Array.Copy(command, 0, result, 10, command.Length);
+
+            return result;
+        }
+
+
+
+        /// <summary>
         /// 
         /// </summary>
         /// <param name="address">起始地址</param>
@@ -105,17 +131,48 @@ namespace OmronCommunication.Profinet
         /// <returns></returns>
         public OperateResult<byte[]> BuildReadFinsCommand(string address,ushort length, bool isBit) 
         {
-            var result = AnalyzeAddress(address, isBit);
+            //读存储器操作码，固定 01 01 hex
+            var readCommandCode = new byte[2] { 0x01, 0x01 };
 
+            //地址码
+            var addressCommand = AnalyzeAddress(address, isBit);
+            //TODO 完善 错误信息 错误码
+            if(!addressCommand.IsSuccess) return new OperateResult<byte[]>(false,"地址解析错误",0);
 
-            return new OperateResult<byte[]>();
+            //长度码
+            var lengthCode = new byte[2] { (byte)(length / 256), (byte)(length % 256) };
+
+            //组合
+            var readCommand = new byte[8];
+            readCommandCode.CopyTo(readCommand, 0);
+            addressCommand.Value!.CopyTo(readCommand, 2);
+            lengthCode.CopyTo(readCommand, 6);
+            var completeCommand = BuildCompleteCommand(readCommand);
+
+            //TODO 完善格式
+            return new OperateResult<byte[]>(true, "", 0) { Value = completeCommand};
         }
 
-        public OperateResult<byte[]> BuildWriteFinsCommand(string address,int value) 
+        public OperateResult<byte[]> BuildWriteFinsCommand(string address, byte[] data, bool isBit) 
         {
-            return new OperateResult<byte[]>();
+            //写存储器操作码，固定 01 02 hex
+            var readCommandCode = new byte[2] { 0x01, 0x02 };
+
+            //地址码
+            var addressCommand = AnalyzeAddress(address, isBit);
+            //TODO 完善 错误信息 错误码
+            if (!addressCommand.IsSuccess) return new OperateResult<byte[]>(false, "地址解析错误", 0);
+
+            //组合
+            var writeCommand = new byte[6+data.Length];
+            Array.Copy(readCommandCode, 0, writeCommand, 0, 2);
+            Array.Copy(addressCommand.Value!, 0, writeCommand, 2, 4);
+            var completeCommand = BuildCompleteCommand(writeCommand);
+
+            //TODO 完善格式
+            return new OperateResult<byte[]>(true, "", 0) { Value = completeCommand };
         }
-        
+
         /// <summary>
         /// 从finscommand中解析出需要的信息
         /// </summary>

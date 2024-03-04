@@ -6,33 +6,34 @@ using System.Text;
 using System.Threading.Tasks;
 using OmronCommunication.DataTypes;
 
-namespace OmronCommunication.Network
+namespace OmronCommunication.Transmission
 {
-    public abstract class NetworkBase
+    public abstract class NetBase
     {
-        public NetworkBase()
+        public NetBase()
         {
-            
+
         }
 
-        protected Socket? CoreSocket;
-        
-        protected virtual OperateResult<byte[]> Receive(Socket socket)
+        protected Socket? coreSocket;
+
+
+        protected virtual OperateResult<byte[]> ReceiveFrom(Socket socket)
         {
             var resullt = new OperateResult<byte[]>();
 
             var statebuff = new byte[1024];
-            socket.BeginReceive(statebuff, 0, 1024, SocketFlags.None, ReceiveCallback,null);
+            socket.BeginReceive(statebuff, 0, 1024, SocketFlags.None, ReceiveCallback, null);
 
             return resullt;
         }
 
-        protected virtual OperateResult SendTo(Socket socket, byte[] data) 
+        protected virtual OperateResult SendTo(Socket socket, byte[] data)
         {
             return new OperateResult();
         }
 
         private void ReceiveCallback(IAsyncResult ar) { }
-            
+
     }
 }
