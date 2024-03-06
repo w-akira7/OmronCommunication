@@ -1,20 +1,10 @@
 ﻿using OmronCommunication.DataTypes;
-using OmronCommunication.PLC;
-using OmronCommunication.Tools;
-using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Linq;
-using System.Net;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace OmronCommunication.Profinet
 {
-    public class FinsCommand:FinsCommandBase
+    public class FinsCommand : FinsCommandBase
     {
         public FinsCommand() { }
-
 
         /// <summary>
         /// 
@@ -22,9 +12,9 @@ namespace OmronCommunication.Profinet
         /// <param name="address"></param>
         /// <returns></returns>
         /// <exception cref="Exception"></exception>
-        private OperateResult<FinsDataTypes> AnalyzeAddressType(string address)
+        private OperationResult<FinsDataTypes> AnalyzeAddressType(string address)
         {
-            var result = new OperateResult<FinsDataTypes>();
+            var result = new OperationResult<FinsDataTypes>();
             switch (address[0])
             {
                 //CIO
@@ -75,13 +65,13 @@ namespace OmronCommunication.Profinet
         /// <param name="isBit">是否位操作</param>
         /// <returns>地址码：一个4字节的字节数组,包括 I/O Memory area code 和 Beginning address</returns>
         /// <exception cref="Exception"></exception> 
-        private OperateResult<byte[]> AnalyzeAddress(string address, bool isBit)
-        {   
-            var result = new OperateResult<byte[]>();
+        private OperationResult<byte[]> AnalyzeAddress(string address, bool isBit)
+        {
+            var result = new OperationResult<byte[]>();
             result.Value = new byte[4];
             var datatype = AnalyzeAddressType(address);
             //位操作 PLC中 1 word = 2 bytes = 16 bits
-            if (isBit) 
+            if (isBit)
             {
                 result.Value[0] = datatype.Value.BitCode;
                 var splits = address.Substring(1).Split('.', StringSplitOptions.RemoveEmptyEntries);
@@ -129,7 +119,7 @@ namespace OmronCommunication.Profinet
         /// <param name="length">读取长度</param>
         /// <param name="isBit">是否字操作</param>
         /// <returns></returns>
-        public OperateResult<byte[]> BuildReadFinsCommand(string address,ushort length, bool isBit) 
+        public OperationResult<byte[]> BuildReadFinsCommand(string address, ushort length, bool isBit)
         {
             //读存储器操作码，固定 01 01 hex
             var readCommandCode = new byte[2] { 0x01, 0x01 };
@@ -137,7 +127,7 @@ namespace OmronCommunication.Profinet
             //地址码
             var addressCommand = AnalyzeAddress(address, isBit);
             //TODO 完善 错误信息 错误码
-            if(!addressCommand.IsSuccess) return new OperateResult<byte[]>(false,"地址解析错误",0);
+            if (!addressCommand.IsSuccess) return new OperationResult<byte[]>(false, "地址解析错误", 0);
 
             //长度码
             var lengthCode = new byte[2] { (byte)(length / 256), (byte)(length % 256) };
@@ -150,10 +140,10 @@ namespace OmronCommunication.Profinet
             var completeCommand = BuildCompleteCommand(readCommand);
 
             //TODO 完善格式
-            return new OperateResult<byte[]>(true, "", 0) { Value = completeCommand};
+            return new OperationResult<byte[]>(true, "", 0) { Value = completeCommand };
         }
 
-        public OperateResult<byte[]> BuildWriteFinsCommand(string address, byte[] data, bool isBit) 
+        public OperationResult<byte[]> BuildWriteFinsCommand(string address, byte[] data, bool isBit)
         {
             //写存储器操作码，固定 01 02 hex
             var readCommandCode = new byte[2] { 0x01, 0x02 };
@@ -161,35 +151,50 @@ namespace OmronCommunication.Profinet
             //地址码
             var addressCommand = AnalyzeAddress(address, isBit);
             //TODO 完善 错误信息 错误码
-            if (!addressCommand.IsSuccess) return new OperateResult<byte[]>(false, "地址解析错误", 0);
+            if (!addressCommand.IsSuccess) return new OperationResult<byte[]>(false, "地址解析错误", 0);
 
             //组合
-            var writeCommand = new byte[6+data.Length];
+            var writeCommand = new byte[6 + data.Length];
             Array.Copy(readCommandCode, 0, writeCommand, 0, 2);
             Array.Copy(addressCommand.Value!, 0, writeCommand, 2, 4);
             var completeCommand = BuildCompleteCommand(writeCommand);
 
             //TODO 完善格式
-            return new OperateResult<byte[]>(true, "", 0) { Value = completeCommand };
+            return new OperationResult<byte[]>(true, "", 0) { Value = completeCommand };
         }
 
         /// <summary>
-        /// 从finscommand中解析出需要的信息
+        /// 从fins udp response中解析出需要的信息,在 tcp 和 hostlink 中重写
         /// </summary>
         /// <returns></returns>
-        public OperateResult<byte[]> AnalyzeFinsCommand(OperateResult<byte[]> result) 
+        public virtual OperationResult<byte[]> AnalyzeFinsResponse(OperationResult<byte[]> result)
         {
-            return new OperateResult<byte[]>(); 
+            //正确的返回，至少包含 fins header. command code. end code 共 14字节 
+            if (result.Value!.Length > 14)
+            {
+                //有返回数据
+                //拆分出数据
+                var newbuff = new byte[result.Value.Length - 14];
+                Array.Copy(result.Value, 14, newbuff, 0, newbuff.Length);
+                return new OperationResult<byte[]>(true) { Value = newbuff };
+            }
+            //无返回数据
+            if (result.Value!.Length == 14)
+            {
+                return new OperationResult<byte[]>(true);
+            }
+            return new OperationResult<byte[]>(false);
         }
+
     }
 
     /// <summary>
     /// I/O Memory Area Designation.
     /// Get the defination in《Omron Communications Commands REFERENCE MANUAL》section 5-2-2 (page 187).
     /// </summary>
-    public class FinsDataTypes
+    public struct FinsDataTypes
     {
-        public FinsDataTypes(byte bitCode,byte wordCode) 
+        public FinsDataTypes(byte bitCode, byte wordCode)
         {
             BitCode = bitCode;
             WordCode = wordCode;

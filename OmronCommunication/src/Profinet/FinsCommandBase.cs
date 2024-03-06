@@ -1,14 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using System.Security.Cryptography;
-using System.Text;
-using System.Threading.Tasks;
-using System.Xml.Linq;
-using static System.Runtime.InteropServices.JavaScript.JSType;
-
-namespace OmronCommunication.Profinet
+﻿namespace OmronCommunication.Profinet
 {
     public abstract class FinsCommandBase
     {
@@ -64,7 +54,7 @@ namespace OmronCommunication.Profinet
         /// 00 hex: CPU Unit
         /// 10 to 1F hex: CPU Bus Unit
         /// </summary>
-        public byte SA2 { get; set;}
+        public byte SA2 { get; set; } = 0x00;
         /// <summary>
         /// Service ID. Used to identify the process generating the transmission. Set the SID to any number between 00 and FF
         /// </summary>

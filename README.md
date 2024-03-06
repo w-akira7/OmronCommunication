@@ -1,1 +1,1 @@
-# S518_AOIDataCapture
+# OmronCommunication
