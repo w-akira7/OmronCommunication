@@ -361,6 +361,6 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
-/ConsoleApp1/ConsoleApp1.csproj
-/WPF_S518_AOIDataCapture/WPF_S518_AOIDataCapture.csproj
-/WPF_S518_AOIDataCapture
+/OmronCommunicationTests/OmronCommunicationTests.csproj
+/OmronCommunicationTests/OmronCommunicationTests.csproj
+/OmronCommunicationTests/OmronCommunicationTests.csproj
