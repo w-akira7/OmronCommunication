@@ -93,11 +93,11 @@ namespace OmronCommunication.Profinet
         }
 
         /// <summary>
-        /// 将命令与 FINS 头组合成完整的 FINS 数据包
+        /// 按 UDP 传输方式将命令与 FINS 头组合成完整的 FINS 数据包,在 TCP 和 Hostlink 中重写
         /// </summary>
         /// <param name="command">command code and text</param>
         /// <returns>完整的可发送的FINS包</returns>
-        private byte[] BuildCompleteCommand(byte[] command)
+        public virtual byte[] BuildCompleteCommand(byte[] command)
         {
             //build fins header
             var header = new byte[10] { ICF, RSV, GCT, DNA, DA1, DA2, SNA, SA1, SA2, SID };

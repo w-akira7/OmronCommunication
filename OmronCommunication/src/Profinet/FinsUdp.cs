@@ -16,23 +16,12 @@ namespace OmronCommunication.Profinet
             RemotePort = remotePort;
             LocalIP = ((IPEndPoint)UdpClient.Client.LocalEndPoint!).Address;
         }
-
-        #region TCP or UDP
-
-        public bool IsTcp()
-        {
-            return false;
-        }
-
-        public bool IsUdp()
-        {
-            return true;
-        }
-
-        #endregion
-
+        
         public UdpClient UdpClient => _udpClient!;
 
+        /// <summary>
+        /// 上位机网络地址
+        /// </summary>
         public IPAddress LocalIP
         {
             get => LocalIP; 
@@ -49,7 +38,7 @@ namespace OmronCommunication.Profinet
         public IPAddress RemoteIP
         {
             get => RemoteIP;
-            set
+            private set
             {
                 RemoteIP = value;
                 DA1 = value.GetAddressBytes()[3];
@@ -59,10 +48,9 @@ namespace OmronCommunication.Profinet
         /// <summary>
         /// 目标网络设备的端口, omron plc 默认 9600
         /// </summary>
-        public int RemotePort { get; set; } = 9600;
+        public int RemotePort { get; private set; } = 9600;
 
-
-        #region net
+        #region Networkstream
 
         public OperationResult Send(byte[] data)
         {

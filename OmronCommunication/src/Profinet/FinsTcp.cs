@@ -9,6 +9,15 @@ namespace OmronCommunication.Profinet
     {
         private readonly TcpClient _tcpClient;
 
+        private readonly byte[] _handSignal =
+        {
+            0x46, 0x49, 0x4E, 0x53, // FINS
+            0x00, 0x00, 0x00, 0x0C, // 后面的命令长度
+            0x00, 0x00, 0x00, 0x00, // 命令码
+            0x00, 0x00, 0x00, 0x00, // 错误码
+            0x00, 0x00, 0x00, 0x01  // 节点号
+        };
+
         public FinsTcp(string remoteIP, int remotePort)
         {
             _tcpClient = new TcpClient();
@@ -19,16 +28,9 @@ namespace OmronCommunication.Profinet
 
         public TcpClient TcpClient { get { return _tcpClient; } }
 
-        public bool IsTcp()
-        {
-            return true;
-        }
-
-        public bool IsUdp()
-        {
-            return false;
-        }
-
+        /// <summary>
+        /// 上位机网络地址
+        /// </summary>
         public IPAddress LocalIP
         {
             get => LocalIP;
@@ -45,7 +47,7 @@ namespace OmronCommunication.Profinet
         public IPAddress RemoteIP
         {
             get => RemoteIP;
-            set
+            private set
             {
                 RemoteIP = value;
                 DA1 = value.GetAddressBytes()[3];
@@ -55,24 +57,12 @@ namespace OmronCommunication.Profinet
         /// <summary>
         /// 目标网络设备的端口, omron plc 默认 9600
         /// </summary>
-        public int RemotePort { get; set; } = 9600;
+        public int RemotePort { get; private set; } = 9600;
 
-
-        #region HandSignal
-
-        private byte[] _handSignal =
-        {
-            0x46, 0x49, 0x4E, 0x53, // FINS
-            0x00, 0x00, 0x00, 0x0C, // 后面的命令长度
-            0x00, 0x00, 0x00, 0x00, // 命令码
-            0x00, 0x00, 0x00, 0x00, // 错误码
-            0x00, 0x00, 0x00, 0x01  // 节点号
-        };
-
+        /// <summary>
+        /// Fins/Tcp握手信号，每次传输都要加上
+        /// </summary>
         public byte[] HandSignal { get => _handSignal; }
-
-        #endregion
-
 
         #region Connect
 
@@ -109,41 +99,90 @@ namespace OmronCommunication.Profinet
                 };
             }
         }
-
-        public OperationResult Write(string address, byte[] data, bool isBit)
-        {
-            throw new NotImplementedException();
-        }
-
-        public OperationResult<byte[]> Read(string address, ushort length, bool isBit)
-        {
-            throw new NotImplementedException();
-        }
-
+  
         #endregion
 
-        #region Send & Receive
+        #region Networkstream
 
-        public void Send(byte[] data)
+        //TODO
+        public OperationResult Send(byte[] data)
         {
             var stream = new NetworkStream(TcpClient.Client);
 
             stream.Write(data, 0, data.Length);
+
+            return new OperationResult();
         }
 
-        public byte[] Receive()
+        //TODO
+        public OperationResult<byte[]> Receive()
         {
             var stream = new NetworkStream(TcpClient.Client);
             var buff = new byte[2048];
             stream.Read(buff);
-            return buff;
+
+            var result = new OperationResult<byte[]>() { Value = buff };
+            return result;
         }
 
+        //TODO
+        public OperationResult<byte[]> SendAndReceive(byte[] data)
+        {
+            Send(data);
+
+            var result = Receive();
+
+            return result;
+        }
 
         #endregion
 
+        #region Read Write
+
+        public OperationResult Write(string address, byte[] data, bool isBit)
+        {
+            //BuildWriteCommand
+            var command = BuildWriteFinsCommand(address, data, isBit);
+
+
+            //ReadFromPLC
+            var response = SendAndReceive(command.Value);
+
+
+            //DataAnalysis
+            var result = AnalyzeFinsResponse(response);
+
+
+            return result;
+        }
+
+        public OperationResult<byte[]> Read(string address, ushort length, bool isBit)
+        {
+            //BuildReadCommand
+            var command = BuildReadFinsCommand(address, length, isBit);
+
+
+            //ReadFromPLC
+            var response = SendAndReceive(command.Value);
+
+
+            //DataAnalysis
+            var result = AnalyzeFinsResponse(response);
+
+            return result;
+        }
+
+        #endregion
+
+        public override byte[] BuildCompleteCommand(byte[] command)
+        {
+            //TODO 基于UDP在开头加上握手信号
+            return base.BuildCompleteCommand(command);
+        }
+
         public override OperationResult<byte[]> AnalyzeFinsResponse(OperationResult<byte[]> result)
         {
+            //TODO 
             return base.AnalyzeFinsResponse(result);
         }
 

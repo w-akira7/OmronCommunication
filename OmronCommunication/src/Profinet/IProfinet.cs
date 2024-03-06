@@ -7,9 +7,6 @@ namespace OmronCommunication.Profinet
     /// </summary>
     public interface IProfinet
     {
-        public bool IsTcp();
-
-        public bool IsUdp();
 
         public OperationResult Write(string address, byte[] data, bool isBit);
 

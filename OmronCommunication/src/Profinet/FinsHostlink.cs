@@ -10,22 +10,6 @@ namespace OmronCommunication.Profinet
     public class FinsHostlink : FinsCommand, IProfinet
     {
 
-
-
-
-
-
-
-        public bool IsTcp()
-        {
-            throw new NotImplementedException();
-        }
-
-        public bool IsUdp()
-        {
-            throw new NotImplementedException();
-        }
-
         public OperationResult<byte[]> Read(string address, ushort length, bool isBit)
         {
             throw new NotImplementedException();
@@ -36,6 +20,10 @@ namespace OmronCommunication.Profinet
             throw new NotImplementedException();
         }
 
+        public override byte[] BuildCompleteCommand(byte[] command)
+        {
+            return base.BuildCompleteCommand(command);
+        }
 
         public override OperationResult<byte[]> AnalyzeFinsResponse(OperationResult<byte[]> result)
         {
