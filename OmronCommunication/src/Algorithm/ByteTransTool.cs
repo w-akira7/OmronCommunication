@@ -1,28 +1,25 @@
 ﻿namespace OmronCommunication.Tools
 {
-    public static class ByteTransTool
+    public static class ByteTransTools
     {
         /// <summary>
         /// 每两个字节高低位反转.ABCD => BADC
         /// </summary>
         /// <param name="data"></param>
         /// <returns></returns>
-        public static byte[] ReverseWordBytes(byte[] data)
+        public static byte[] ReverseWordByte(byte[] data)
         {
-            //字节长度必须符合要求
-            if (data.Length % 2 == 0)
+            if (data.Length % 2 == 0)                             
             {
                 var buffer = new byte[data.Length];
-                //每两个字节反转
-                for (int i = 0; i < data.Length; i = i + 2)
+                for (int i = 0; i < data.Length; i = i + 2)       
                 {
                     buffer[i] = data[i + 1];
                     buffer[i + 1] = data[i];
                 }
                 return buffer;
             }
-            //TODO 
-            throw new Exception();
+            throw new ByteLengthExceededException();
         }
 
         /// <summary>
@@ -30,13 +27,11 @@
         /// </summary>
         /// <param name="data"></param>
         /// <returns></returns>
-        public static byte[] ReverseDWordBytes(byte[] data)
+        public static byte[] ReverseDWordByte(byte[] data)
         {
-            //字节长度必须符合要求
             if (data.Length % 4 == 0)
             {
                 var buffer = new byte[data.Length];
-                //每4个字节反转
                 for (int i = 0; i < data.Length; i = i + 4)
                 {
                     buffer[i] = data[i + 3];
@@ -46,8 +41,7 @@
                 }
                 return buffer;
             }
-            //TODO 
-            throw new Exception();
+            throw new ByteLengthExceededException();
         }
 
         /// <summary>
@@ -62,8 +56,7 @@
             {
                 return BitConverter.ToInt16(data, 0);
             }
-            //TODO 
-            throw new Exception();
+            throw new ByteLengthExceededException();
         }
 
         /// <summary>
@@ -74,7 +67,6 @@
         public static short[] WordsToInt16(byte[] data)
         {
             var res = new short[data.Length / sizeof(short)];
-            //每2个字节一组
             for (int i = 0; i < data.Length; i = i + 2)
             {
                 byte[] buffer = { data[i], data[i + 1] };
@@ -94,8 +86,7 @@
             {
                 return BitConverter.ToInt32(data, 0);
             }
-            //TODO 
-            throw new Exception();
+            throw new ByteLengthExceededException();
         }
 
         /// <summary>
@@ -106,7 +97,6 @@
         public static int[] DWordsToInt32(byte[] data)
         {
             var res = new int[data.Length / sizeof(int)];
-            //每4个字节一组
             for (int i = 0; i < data.Length; i = i + 4)
             {
                 byte[] buffer = { data[i], data[i + 1], data[i + 2], data[i + 3] };
@@ -127,20 +117,17 @@
             {
                 return BitConverter.ToSingle(data, 0);
             }
-            //TODO 
-            throw new Exception();
-
+            throw new ByteLengthExceededException();
         }
 
         /// <summary>
-        /// 计算机小端序方式双字组转换float组
+        /// 计算机小端序方式将多组双字转换float组
         /// </summary>
         /// <param name="data"></param>
         /// <returns></returns>
         public static float[] DWordsToFloat(byte[] data)
         {
             var res = new float[data.Length / sizeof(float)];
-            //每4个字节一组
             for (int i = 0; i < data.Length; i = i + 4)
             {
                 byte[] buffer = { data[i], data[i + 1], data[i + 2], data[i + 3] };

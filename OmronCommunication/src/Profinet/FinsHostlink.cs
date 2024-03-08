@@ -1,4 +1,4 @@
-﻿using OmronCommunication.DataTypes;
+﻿using OmronCommunication;
 using System;
 using System.Collections.Generic;
 using System.Linq;

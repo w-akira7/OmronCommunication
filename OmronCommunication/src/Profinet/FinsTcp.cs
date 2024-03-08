@@ -1,6 +1,6 @@
 ﻿using System.Net.Sockets;
 using System.Net;
-using OmronCommunication.DataTypes;
+using OmronCommunication;
 using System.IO;
 
 namespace OmronCommunication.Profinet
@@ -8,6 +8,8 @@ namespace OmronCommunication.Profinet
     internal class FinsTcp : FinsCommand, IProfinet
     {
         private readonly TcpClient _tcpClient;
+        private IPAddress? _localIP;
+        private IPAddress? _remoteIP;
 
         private readonly byte[] _handSignal =
         {
@@ -26,17 +28,17 @@ namespace OmronCommunication.Profinet
             LocalIP = ((IPEndPoint)TcpClient.Client.LocalEndPoint!).Address;
         }
 
-        public TcpClient TcpClient { get { return _tcpClient; } }
+        public TcpClient TcpClient { get => _tcpClient; } 
 
         /// <summary>
         /// 上位机网络地址
         /// </summary>
-        public IPAddress LocalIP
+        public IPAddress? LocalIP
         {
-            get => LocalIP;
+            get => _localIP;
             private set
             {
-                LocalIP = value;
+                _localIP = value;
                 SA1 = value.GetAddressBytes()[3];
             }
         }
@@ -44,12 +46,12 @@ namespace OmronCommunication.Profinet
         /// <summary>
         /// 目标网络设备的IP地址
         /// </summary>
-        public IPAddress RemoteIP
+        public IPAddress? RemoteIP
         {
-            get => RemoteIP;
+            get => _remoteIP;
             private set
             {
-                RemoteIP = value;
+                _remoteIP = value;
                 DA1 = value.GetAddressBytes()[3];
             }
         }
@@ -72,6 +74,7 @@ namespace OmronCommunication.Profinet
             {
                 TcpClient.Connect(RemoteIP, RemotePort);
                 return new OperationResult(true);
+                //TODO 第一次连接需要与PLC握手
 
             }
             catch (Exception ex)
@@ -142,7 +145,7 @@ namespace OmronCommunication.Profinet
         public OperationResult Write(string address, byte[] data, bool isBit)
         {
             //BuildWriteCommand
-            var command = BuildWriteFinsCommand(address, data, isBit);
+            var command = BuildFinsWriteCommand(address, data, isBit);
 
 
             //ReadFromPLC
@@ -159,7 +162,7 @@ namespace OmronCommunication.Profinet
         public OperationResult<byte[]> Read(string address, ushort length, bool isBit)
         {
             //BuildReadCommand
-            var command = BuildReadFinsCommand(address, length, isBit);
+            var command = BuildFinsReadCommand(address, length, isBit);
 
 
             //ReadFromPLC
@@ -174,10 +177,22 @@ namespace OmronCommunication.Profinet
 
         #endregion
 
+        /// <summary>
+        /// 按 TCP 传输组合完整的 FINS 数据包
+        /// </summary>
+        /// <param name="command"></param>
+        /// <returns></returns>
         public override byte[] BuildCompleteCommand(byte[] command)
         {
-            //TODO 基于UDP在开头加上握手信号
-            return base.BuildCompleteCommand(command);
+            //TODO 基于UDP构建 并在开头加上TCP握手信号
+            var udpCommand= base.BuildCompleteCommand(command);
+            var completeCommand = new byte[udpCommand.Length + HandSignal.Length];
+            HandSignal.CopyTo(completeCommand, 0);
+                
+
+
+            udpCommand.CopyTo(completeCommand, HandSignal.Length - 1);
+            return completeCommand;
         }
 
         public override OperationResult<byte[]> AnalyzeFinsResponse(OperationResult<byte[]> result)

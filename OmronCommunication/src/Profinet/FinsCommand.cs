@@ -1,13 +1,69 @@
-﻿using OmronCommunication.DataTypes;
+﻿using OmronCommunication;
+using System;
 
 namespace OmronCommunication.Profinet
 {
-    public class FinsCommand : FinsCommandBase
+    public class FinsCommand
     {
         public FinsCommand() { }
+        /// <summary>
+        /// Information Control Field.
+        /// </summary>
+        public byte ICF { get; set; } = 0x80;
+        /// <summary>
+        /// RSV (Reserved) is always 00 hex.
+        /// </summary>
+        public byte RSV { get; private set; } = 0x00;
+        /// <summary>
+        /// Gateway Count: Number of Bridges Passed Through.
+        /// When communicating across up to 8 network layers, set it to 07 hex.
+        /// Otherwise, set the GCT to 02 hex.
+        /// </summary>
+        public byte GCT { get; set; } = 0x02;
+        /// <summary>
+        /// Destination network address.
+        /// 00 hex: Local network.
+        /// 01 to 7F hex : Remote network address (decimal: 1 to 127).
+        /// </summary>
+        public byte DNA { get; set; } = 0x00;
+        /// <summary>
+        /// Destination node address.
+        /// </summary>
+        public byte DA1 { get; set; }
+        /// <summary>
+        /// Destination unit address.
+        /// 00 hex:CPU Unit.
+        /// FE hex: Controller Link Unit or Ethernet Unit connected to network.
+        /// 10 to 1F hex: CPU Bus Unit.
+        /// E1 hex: Inner Board.
+        /// </summary>
+        public byte DA2 { get; set; } = 0x00;
+        /// <summary>
+        /// Source network address.
+        /// 00 hex: Local network.
+        /// 01 to 7F hex: Remote network(1 to 127 decimal).
+        /// </summary>
+        public byte SNA { get; set; } = 0x00;
+        /// <summary>
+        /// Source node address.
+        /// 00 hex: Internal communications in PLC
+        /// 01 to 20 hex: Node address in Controller Link Network(1 to 32 decimal)
+        /// 01 to FE hex: Ethernet(1 to 254 decimal,for Ethernet Units with model numbers ending in ETN21)
+        /// </summary>
+        public byte SA1 { get; set; }
+        /// <summary>
+        /// Source unit address.
+        /// 00 hex: CPU Unit
+        /// 10 to 1F hex: CPU Bus Unit
+        /// </summary>
+        public byte SA2 { get; set; } = 0x00;
+        /// <summary>
+        /// Service ID. Used to identify the process generating the transmission. Set the SID to any number between 00 and FF
+        /// </summary>
+        public byte SID { get; set; } = 0x00;
 
         /// <summary>
-        /// 
+        /// 解析地址。要求的输入格式“C100.12”、“D100”
         /// </summary>
         /// <param name="address"></param>
         /// <returns></returns>
@@ -67,29 +123,28 @@ namespace OmronCommunication.Profinet
         /// <exception cref="Exception"></exception> 
         private OperationResult<byte[]> AnalyzeAddress(string address, bool isBit)
         {
-            var result = new OperationResult<byte[]>();
-            result.Value = new byte[4];
+            var buffer = new byte[4];
             var datatype = AnalyzeAddressType(address);
             //位操作 PLC中 1 word = 2 bytes = 16 bits
             if (isBit)
             {
-                result.Value[0] = datatype.Value.BitCode;
+                buffer[0] = datatype.Value.BitCode;
                 var splits = address.Substring(1).Split('.', StringSplitOptions.RemoveEmptyEntries);
                 var addr = ushort.Parse(splits[0]);
-                result.Value[1] = BitConverter.GetBytes(addr)[1];
-                result.Value[2] = BitConverter.GetBytes(addr)[2];
-                result.Value[3] = byte.Parse(splits[1]);
+                buffer[1] = BitConverter.GetBytes(addr)[1];
+                buffer[2] = BitConverter.GetBytes(addr)[2];
+                buffer[3] = byte.Parse(splits[1]);
 
             }
             //字操作
             else
             {
-                result.Value[0] = datatype.Value.WordCode;
+                buffer[0] = datatype.Value.WordCode;
                 var addr = ushort.Parse(address[1..]);
-                result.Value[1] = BitConverter.GetBytes(addr)[1];
-                result.Value[2] = BitConverter.GetBytes(addr)[0];
+                buffer[1] = BitConverter.GetBytes(addr)[1];
+                buffer[2] = BitConverter.GetBytes(addr)[0];
             }
-            return result;
+            return OperationResult.CreateSuccessResult(buffer);
         }
 
         /// <summary>
@@ -119,7 +174,7 @@ namespace OmronCommunication.Profinet
         /// <param name="length">读取长度</param>
         /// <param name="isBit">是否字操作</param>
         /// <returns></returns>
-        public OperationResult<byte[]> BuildReadFinsCommand(string address, ushort length, bool isBit)
+        public OperationResult<byte[]> BuildFinsReadCommand(string address, ushort length, bool isBit)
         {
             //读存储器操作码，固定 01 01 hex
             var readCommandCode = new byte[2] { 0x01, 0x01 };
@@ -140,23 +195,38 @@ namespace OmronCommunication.Profinet
             var completeCommand = BuildCompleteCommand(readCommand);
 
             //TODO 完善格式
-            return new OperationResult<byte[]>(true, "", 0) { Value = completeCommand };
+            return  OperationResult.CreateSuccessResult(completeCommand);
         }
 
-        public OperationResult<byte[]> BuildWriteFinsCommand(string address, byte[] data, bool isBit)
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="address"></param>
+        /// <param name="data"></param>
+        /// <param name="isBit"></param>
+        /// <returns></returns>
+        public OperationResult<byte[]> BuildFinsWriteCommand(string address, byte[] data, bool isBit)
         {
-            //写存储器操作码，固定 01 02 hex
-            var readCommandCode = new byte[2] { 0x01, 0x02 };
-
-            //地址码
-            var addressCommand = AnalyzeAddress(address, isBit);
+            var writeCommandCode = new byte[2] { 0x01, 0x02 };                                    //写存储器操作码，固定 01 02 hex
+            var addressCommand = AnalyzeAddress(address, isBit);                                  //地址码
             //TODO 完善 错误信息 错误码
-            if (!addressCommand.IsSuccess) return new OperationResult<byte[]>(false, "地址解析错误", 0);
+            if (!addressCommand.IsSuccess) return OperationResult.CreateFailResult<byte[]>();
 
-            //组合
-            var writeCommand = new byte[6 + data.Length];
-            Array.Copy(readCommandCode, 0, writeCommand, 0, 2);
+            var lengthCode = new byte[2];                                                         //长度码
+            if (isBit)
+            {
+                lengthCode = [(byte)(data.Length / 256), (byte)(data.Length % 256)];              //位操作，每个字节就是一个数据，对应数据长度就是字节长度
+            }
+            else
+            {
+                lengthCode = [(byte)(data.Length / 2 / 256), (byte)(data.Length / 2 % 256)];      //字操作，每两个字节就是一个数据，对应数据长度是字节长度的一般
+            }
+
+            var writeCommand = new byte[8 + data.Length];                                         //组合
+            Array.Copy(writeCommandCode, 0, writeCommand, 0, 2);
             Array.Copy(addressCommand.Value!, 0, writeCommand, 2, 4);
+            Array.Copy(lengthCode, 0, writeCommand, 6, 2);
+            Array.Copy(data, 0, writeCommand, 8, data.Length);
             var completeCommand = BuildCompleteCommand(writeCommand);
 
             //TODO 完善格式
@@ -169,8 +239,8 @@ namespace OmronCommunication.Profinet
         /// <returns></returns>
         public virtual OperationResult<byte[]> AnalyzeFinsResponse(OperationResult<byte[]> result)
         {
-            //正确的返回，至少包含 fins header. command code. end code 共 14字节 
-            if (result.Value!.Length > 14)
+            //TODO 该部分代码需要根据omron 通讯手册 5-1-3 END CODES 修改
+            if (result.Value!.Length > 14)                                                        //正确的返回，至少包含 fins header. command code. end code 共 14字节 
             {
                 //有返回数据
                 //拆分出数据

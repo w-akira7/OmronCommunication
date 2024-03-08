@@ -1,6 +1,6 @@
 ﻿using System.Net;
 using System.Net.Sockets;
-using OmronCommunication.DataTypes;
+using OmronCommunication;
 
 
 namespace OmronCommunication.Profinet
@@ -8,78 +8,66 @@ namespace OmronCommunication.Profinet
     public class FinsUdp : FinsCommand, IProfinet
     {
         private readonly UdpClient? _udpClient;
+        private IPAddress? _localIP;
+        private IPAddress? _remoteIP;
 
-        public FinsUdp(string remoteIP, int remotePort)
+        public FinsUdp(string localIP, string remoteIP, int remotePort)
         {
             _udpClient = new UdpClient();
-            RemoteIP = IPAddress.Parse(remoteIP);
+            _remoteIP = IPAddress.Parse(remoteIP);
+            _localIP = IPAddress.Parse(localIP);
             RemotePort = remotePort;
-            LocalIP = ((IPEndPoint)UdpClient.Client.LocalEndPoint!).Address;
+            DA1 = RemoteIP!.GetAddressBytes()[3];
+            SA1 = LocalIP!.GetAddressBytes()[3];
+            FinsUdpClient.Client.ReceiveTimeout = ReceiveTimeout;
         }
-        
-        public UdpClient UdpClient => _udpClient!;
 
+        public UdpClient FinsUdpClient => _udpClient!;
         /// <summary>
         /// 上位机网络地址
         /// </summary>
-        public IPAddress LocalIP
-        {
-            get => LocalIP; 
-            private set
-            {
-                LocalIP = value;
-                SA1 = value.GetAddressBytes()[3];
-            }
-        }
-
+        public IPAddress? LocalIP => _localIP;    
         /// <summary>
         /// 目标网络设备的IP地址
         /// </summary>
-        public IPAddress RemoteIP
-        {
-            get => RemoteIP;
-            private set
-            {
-                RemoteIP = value;
-                DA1 = value.GetAddressBytes()[3];
-            }
-        }
-
+        /// 
+        public IPAddress? RemoteIP => _remoteIP;
         /// <summary>
         /// 目标网络设备的端口, omron plc 默认 9600
         /// </summary>
         public int RemotePort { get; private set; } = 9600;
-
-        #region Networkstream
+        /// <summary>
+        /// 接收超时
+        /// </summary>
+        public int ReceiveTimeout { get; set; } = 5000;
 
         public OperationResult Send(byte[] data)
         {
             var result = new OperationResult();
-
             try
             {
-                UdpClient.Send(data, data.Length, new IPEndPoint(RemoteIP, RemotePort));
+                FinsUdpClient.Send(data, data.Length, new IPEndPoint(RemoteIP!, RemotePort));
                 result.IsSuccess = true;
                 return result;
-
             }
             catch (Exception ex)
             {
+                //日志记录异常
                 result.IsSuccess = false;
                 result.Message = ex.Message;
                 return result;
             }
-
         }
 
         public OperationResult<byte[]> Receive()
         {
             var result = new OperationResult<byte[]>();
 
-            var remoteEp = new IPEndPoint(RemoteIP, RemotePort);
+            var remoteEp = new IPEndPoint(RemoteIP!, RemotePort);
             try
             {
-                var buffer = UdpClient.Receive(ref remoteEp);
+             
+                var buffer = FinsUdpClient.Receive(ref remoteEp);
 
                 result.IsSuccess = true;
                 result.Value = buffer;
@@ -88,6 +76,7 @@ namespace OmronCommunication.Profinet
             }
             catch (Exception ex)
             {
+                //日志记录异常
                 result.IsSuccess = false;
                 result.Message = ex.Message;
                 return result;
@@ -104,43 +93,41 @@ namespace OmronCommunication.Profinet
             return result;
         }
 
-        #endregion
+        //
+        //TODO 由于UDP要么发送要么丢包，需要增加发送失败检测功能
+        //
 
         #region Read Write
 
         public OperationResult Write(string address, byte[] data, bool isBit)
         {
             //BuildWriteCommand
-            var command = BuildWriteFinsCommand(address, data, isBit);
-
+            var command = BuildFinsWriteCommand(address, data, isBit);
+            if (!command.IsSuccess) return OperationResult.CreateFailResult<byte[]>();
 
             //ReadFromPLC
             var response = SendAndReceive(command.Value);
-
+            if (!response.IsSuccess) return OperationResult.CreateFailResult<byte[]>();
 
             //DataAnalysis
             var result = AnalyzeFinsResponse(response);
-
-
             return result;
         }
 
         public OperationResult<byte[]> Read(string address, ushort length, bool isBit)
         {
             //BuildReadCommand
-            var command = BuildReadFinsCommand(address, length, isBit);
-
+            var command = BuildFinsReadCommand(address, length, isBit);
+            if (!command.IsSuccess) return OperationResult.CreateFailResult<byte[]>();
 
             //ReadFromPLC
             var response = SendAndReceive(command.Value);
-
-
+            if (!response.IsSuccess) return OperationResult.CreateFailResult<byte[]>();
+           
             //DataAnalysis
             var result = AnalyzeFinsResponse(response);
-
             return result;
         }
         #endregion
-
     }
 }

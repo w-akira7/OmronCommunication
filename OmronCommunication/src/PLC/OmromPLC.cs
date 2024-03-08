@@ -1,4 +1,4 @@
-﻿using OmronCommunication.DataTypes;
+﻿using OmronCommunication;
 using OmronCommunication.Profinet;
 using OmronCommunication.Tools;
 
@@ -54,7 +54,7 @@ namespace OmronCommunication.PLC
             var readResult = _device.Read(address, 1, true);
             if (!readResult.IsSuccess) throw new NotImplementedException();
 
-            var i = readResult.Value.Select(s => s != 0x00 ? true : false).ToArray();
+            var i = readResult.Value.Select(eachByte => eachByte != 0x00 ? true : false).ToArray();
             return i[0];
         }
 
@@ -63,24 +63,24 @@ namespace OmronCommunication.PLC
             var readResult = _device.Read(address, length, true);
             if (!readResult.IsSuccess) throw new NotImplementedException();
 
-            var i = readResult.Value.Select(s => s != 0x00 ? true : false).ToArray();
+            var i = readResult.Value.Select(eachByte => eachByte != 0x00 ? true : false).ToArray();
             return i;
         }
         public short ReadShort(string address)
         {
             var readResult = _device.Read(address, 1, false);
-            if (!readResult.IsSuccess) throw new NotImplementedException();
+            if (!readResult.IsSuccess) throw new Exception(readResult.Message);
 
-            readResult.Value = ByteTransTool.ReverseWordBytes(readResult.Value);
-            return ByteTransTool.WordToInt16(readResult.Value);
+            readResult.Value = ByteTransTools.ReverseWordByte(readResult.Value);
+            return ByteTransTools.WordToInt16(readResult.Value);
         }
         public short[] ReadShort(string address, ushort length)
         {
             var readResult = _device.Read(address, length, false);
             if (!readResult.IsSuccess) throw new NotImplementedException();
 
-            readResult.Value = ByteTransTool.ReverseWordBytes(readResult.Value);
-            return ByteTransTool.WordsToInt16(readResult.Value);
+            readResult.Value = ByteTransTools.ReverseWordByte(readResult.Value);
+            return ByteTransTools.WordsToInt16(readResult.Value);
         }
 
         public int ReadInt(string address)
@@ -89,7 +89,7 @@ namespace OmronCommunication.PLC
             if (!readResult.IsSuccess) throw new NotImplementedException();
 
             //TODO 字节翻转
-            return ByteTransTool.DWordToInt32(readResult.Value);
+            return ByteTransTools.DWordToInt32(readResult.Value);
         }
 
         public int[] ReadInt(string address, ushort length)
@@ -98,7 +98,7 @@ namespace OmronCommunication.PLC
             if (!readResult.IsSuccess) throw new NotImplementedException();
 
             //TODO 字节翻转
-            return ByteTransTool.DWordsToInt32(readResult.Value);
+            return ByteTransTools.DWordsToInt32(readResult.Value);
 
         }
 
@@ -108,7 +108,7 @@ namespace OmronCommunication.PLC
             if (!readResult.IsSuccess) throw new NotImplementedException();
 
             //TODO 字节翻转
-            return ByteTransTool.DWordToFloat(readResult.Value);
+            return ByteTransTools.DWordToFloat(readResult.Value);
         }
 
         public float[] ReadFoalt(string address, ushort length)
@@ -117,7 +117,7 @@ namespace OmronCommunication.PLC
             if (!readResult.IsSuccess) throw new NotImplementedException();
 
             //TODO 字节翻转
-            return ByteTransTool.DWordsToFloat(readResult.Value);
+            return ByteTransTools.DWordsToFloat(readResult.Value);
         }
 
         public OperationResult WriteBool(string address, bool value)
