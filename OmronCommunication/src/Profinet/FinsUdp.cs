@@ -1,37 +1,64 @@
 ﻿using System.Net;
 using System.Net.Sockets;
 using OmronCommunication;
+using OmronCommunication.Resource;
 
 
 namespace OmronCommunication.Profinet
 {
     public class FinsUdp : FinsCommand, IProfinet
     {
-        private readonly UdpClient? _udpClient;
+        private UdpClient? _udpclient;
         private IPAddress? _localIP;
         private IPAddress? _remoteIP;
+        private bool _isActive = false;
 
-        public FinsUdp(string localIP, string remoteIP, int remotePort)
+        public FinsUdp(IPAddress remoteIP, int remotePort)
         {
-            _udpClient = new UdpClient();
-            _remoteIP = IPAddress.Parse(remoteIP);
-            _localIP = IPAddress.Parse(localIP);
+            RemoteIP = remoteIP;
             RemotePort = remotePort;
-            DA1 = RemoteIP!.GetAddressBytes()[3];
-            SA1 = LocalIP!.GetAddressBytes()[3];
-            FinsUdpClient.Client.ReceiveTimeout = ReceiveTimeout;
+        }
+        public FinsUdp(int localPort, IPAddress remoteIP, int remotePort)
+        {
+            LocalPort = localPort;
+            RemoteIP = remoteIP;
+            RemotePort = remotePort;
         }
 
-        public UdpClient FinsUdpClient => _udpClient!;
+        public bool IsActive => _isActive; 
         /// <summary>
         /// 上位机网络地址
         /// </summary>
-        public IPAddress? LocalIP => _localIP;    
+        public IPAddress? LocalIP 
+        {
+            get => _localIP;
+            private set
+            {
+                _localIP = value;
+                SA1 = value!.GetAddressBytes()[3];
+            }
+        }
+        /// <summary>
+        /// 上位机的端口
+        /// </summary>
+        public int LocalPort
+        {
+            get;
+            private set;
+        }
         /// <summary>
         /// 目标网络设备的IP地址
         /// </summary>
         /// 
-        public IPAddress? RemoteIP => _remoteIP;
+        public IPAddress? RemoteIP
+        {
+            get => _remoteIP;
+            private set
+            {
+                _remoteIP = value;
+                DA1 = value!.GetAddressBytes()[3];
+            }
+        }
         /// <summary>
         /// 目标网络设备的端口, omron plc 默认 9600
         /// </summary>
@@ -39,63 +66,75 @@ namespace OmronCommunication.Profinet
         /// <summary>
         /// 接收超时
         /// </summary>
-        public int ReceiveTimeout { get; set; } = 5000;
+        public int ReceiveTimeout { get; set; } = 3000;
 
-        public OperationResult Send(byte[] data)
+        /// <summary>
+        /// 建立连接
+        /// </summary>
+        public void Connect()
         {
-            var result = new OperationResult();
-            try
+            if (!_isActive)
             {
-                FinsUdpClient.Send(data, data.Length, new IPEndPoint(RemoteIP!, RemotePort));
-                result.IsSuccess = true;
-                return result;
+                if (LocalPort > 0)
+                {
+                    //指定一个端口
+                    _udpclient = new UdpClient(LocalPort);
+                }
+                else
+                {
+                    _udpclient = new UdpClient();
+                }
+                var remoteEP = new IPEndPoint(RemoteIP, RemotePort);
+                Connect(remoteEP);
+                _isActive = true;
+
+                _udpclient.Client.ReceiveTimeout = ReceiveTimeout;
+                LocalIP = ((IPEndPoint)_udpclient.Client.LocalEndPoint).Address;
             }
-            catch (Exception ex)
+            else
             {
-                //日志记录异常
-                result.IsSuccess = false;
-                result.Message = ex.Message;
-                return result;
+                throw new Exception();
             }
         }
 
-        public OperationResult<byte[]> Receive()
+        /// <summary>
+        /// 关闭并释放连接
+        /// </summary>
+        public void Close()
         {
-            var result = new OperationResult<byte[]>();
-
-            var remoteEp = new IPEndPoint(RemoteIP!, RemotePort);
-            try
+            if (_isActive)
             {
-             
-                var buffer = FinsUdpClient.Receive(ref remoteEp);
-
-                result.IsSuccess = true;
-                result.Value = buffer;
-
-                return result;
-            }
-            catch (Exception ex)
-            {
-                //日志记录异常
-                result.IsSuccess = false;
-                result.Message = ex.Message;
-                return result;
+                _udpclient.Close();
+                _isActive = false;
             }
         }
 
+        private void Connect(IPEndPoint remoteEP)
+        {
+            _udpclient.Connect(remoteEP);
+        }
 
+        /// <summary>
+        /// 基于UDP报文的一次交互
+        /// </summary>
         public OperationResult<byte[]> SendAndReceive(byte[] data)
         {
-            Send(data);
+            try
+            {
+                //同步发送
+                _udpclient.Send(data, data.Length);
 
-            var result = Receive();
+                //同步接收
+                var remoteEP = new IPEndPoint(RemoteIP, RemotePort);
+                var received = _udpclient.Receive(ref remoteEP);
 
-            return result;
+                return OperationResult.CreateSuccessResult(received);
+            }
+            catch (Exception e)
+            {
+                return OperationResult.CreateFailResult<byte[]>(e.Message, ErrorCode.NetSendReceiveError);
+            }
         }
-
-        //
-        //TODO 由于UDP要么发送要么丢包，需要增加发送失败检测功能
-        //
 
         #region Read Write
 
@@ -103,11 +142,11 @@ namespace OmronCommunication.Profinet
         {
             //BuildWriteCommand
             var command = BuildFinsWriteCommand(address, data, isBit);
-            if (!command.IsSuccess) return OperationResult.CreateFailResult<byte[]>();
+            if (!command.IsSuccess) return OperationResult.CreateFailResult<byte[]>(command);
 
             //ReadFromPLC
             var response = SendAndReceive(command.Value);
-            if (!response.IsSuccess) return OperationResult.CreateFailResult<byte[]>();
+            if (!response.IsSuccess) return OperationResult.CreateFailResult<byte[]>(response);
 
             //DataAnalysis
             var result = AnalyzeFinsResponse(response);
@@ -118,16 +157,17 @@ namespace OmronCommunication.Profinet
         {
             //BuildReadCommand
             var command = BuildFinsReadCommand(address, length, isBit);
-            if (!command.IsSuccess) return OperationResult.CreateFailResult<byte[]>();
+            if (!command.IsSuccess) return OperationResult.CreateFailResult<byte[]>(command);
 
             //ReadFromPLC
             var response = SendAndReceive(command.Value);
-            if (!response.IsSuccess) return OperationResult.CreateFailResult<byte[]>();
+            if (!response.IsSuccess) return OperationResult.CreateFailResult<byte[]>(response);
            
             //DataAnalysis
             var result = AnalyzeFinsResponse(response);
             return result;
         }
+
         #endregion
     }
 }

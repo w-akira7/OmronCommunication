@@ -10,6 +10,15 @@ namespace OmronCommunication.Profinet
     public class FinsHostlink : FinsCommand, IProfinet
     {
 
+        public void Connect()
+        {
+            throw new NotImplementedException();
+        }
+
+        public void Close()
+        {
+            throw new NotImplementedException();
+        }
         public OperationResult<byte[]> Read(string address, ushort length, bool isBit)
         {
             throw new NotImplementedException();
@@ -29,5 +38,6 @@ namespace OmronCommunication.Profinet
         {
             return base.AnalyzeFinsResponse(result);
         }
+
     }
 }

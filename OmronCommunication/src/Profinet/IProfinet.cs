@@ -2,11 +2,12 @@
 
 namespace OmronCommunication.Profinet
 {
-    /// <summary>
-    /// 传输方式的抽象接口
-    /// </summary>
+
     public interface IProfinet
     {
+        public void Connect();
+
+        public void Close();
 
         public OperationResult Write(string address, byte[] data, bool isBit);
 

@@ -10,7 +10,10 @@ namespace OmronCommunication
     public class ByteLengthExceededException:Exception
     { 
         public ByteLengthExceededException() :base(){ }
+
     }
 
+    public class OperationReadFailedException:Exception { }
+    public class OperationWriteFailedException:Exception { }
 
 }

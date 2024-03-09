@@ -23,24 +23,22 @@ namespace OmronCommunication
 
         public bool IsSuccess { get; set; }
         public string? Message { get; set; }
-        public int? Errorcode { get; set; }
+        public int Errorcode { get; set; }
 
         public static OperationResult CreateSuccessResult()
             => new OperationResult(true, StringResources.Success, ErrorCode.NormalSuccess);       
         public static OperationResult CreateFailResult()
             => new OperationResult(false, StringResources.Fail, ErrorCode.NormalFail);
-        
         public static OperationResult CreateFailResult(string msg, int errorCode)
            => new OperationResult(false, msg, errorCode);
-
         public static OperationResult<T> CreateSuccessResult<T>(T value)
             =>new OperationResult<T>(true, StringResources.Success, ErrorCode.NormalSuccess) {Value = value  };
-
         public static OperationResult<T> CreateFailResult<T>()
             =>new OperationResult<T>(false, StringResources.Fail, ErrorCode.NormalFail);
-
         public static OperationResult<T> CreateFailResult<T>(string msg,int errorCode)
            => new OperationResult<T>(false, msg, errorCode);
+        public static OperationResult<T> CreateFailResult<T>(OperationResult result)
+           => new OperationResult<T>(false, result.Message, result.Errorcode);
     }
 
     public class OperationResult<T> : OperationResult

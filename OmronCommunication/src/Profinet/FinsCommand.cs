@@ -154,14 +154,12 @@ namespace OmronCommunication.Profinet
         /// <returns>完整的可发送的FINS包</returns>
         public virtual byte[] BuildCompleteCommand(byte[] command)
         {
-            //build fins header
+            //fins header
             var header = new byte[10] { ICF, RSV, GCT, DNA, DA1, DA2, SNA, SA1, SA2, SID };
-
             //build complete command 
             var result = new byte[10 + command.Length];
             Array.Copy(header, 0, result, 0, 10);
             Array.Copy(command, 0, result, 10, command.Length);
-
             return result;
         }
 
@@ -178,23 +176,18 @@ namespace OmronCommunication.Profinet
         {
             //读存储器操作码，固定 01 01 hex
             var readCommandCode = new byte[2] { 0x01, 0x01 };
-
             //地址码
             var addressCommand = AnalyzeAddress(address, isBit);
             //TODO 完善 错误信息 错误码
             if (!addressCommand.IsSuccess) return new OperationResult<byte[]>(false, "地址解析错误", 0);
-
             //长度码
             var lengthCode = new byte[2] { (byte)(length / 256), (byte)(length % 256) };
-
             //组合
             var readCommand = new byte[8];
             readCommandCode.CopyTo(readCommand, 0);
             addressCommand.Value!.CopyTo(readCommand, 2);
             lengthCode.CopyTo(readCommand, 6);
             var completeCommand = BuildCompleteCommand(readCommand);
-
-            //TODO 完善格式
             return  OperationResult.CreateSuccessResult(completeCommand);
         }
 
@@ -207,30 +200,32 @@ namespace OmronCommunication.Profinet
         /// <returns></returns>
         public OperationResult<byte[]> BuildFinsWriteCommand(string address, byte[] data, bool isBit)
         {
-            var writeCommandCode = new byte[2] { 0x01, 0x02 };                                    //写存储器操作码，固定 01 02 hex
-            var addressCommand = AnalyzeAddress(address, isBit);                                  //地址码
+            //写存储器操作码，固定 01 02 hex
+            var writeCommandCode = new byte[2] { 0x01, 0x02 };                                    
+            //地址码
+            var addressCommand = AnalyzeAddress(address, isBit);                                 
             //TODO 完善 错误信息 错误码
             if (!addressCommand.IsSuccess) return OperationResult.CreateFailResult<byte[]>();
-
-            var lengthCode = new byte[2];                                                         //长度码
+            //长度码
+            var lengthCode = new byte[2];   
             if (isBit)
             {
-                lengthCode = [(byte)(data.Length / 256), (byte)(data.Length % 256)];              //位操作，每个字节就是一个数据，对应数据长度就是字节长度
+                //位操作，每个字节就是一个数据，对应数据长度就是字节长度
+                lengthCode = [(byte)(data.Length / 256), (byte)(data.Length % 256)];              
             }
             else
             {
-                lengthCode = [(byte)(data.Length / 2 / 256), (byte)(data.Length / 2 % 256)];      //字操作，每两个字节就是一个数据，对应数据长度是字节长度的一般
+                //字操作，每两个字节就是一个数据，对应数据长度是字节长度的一半
+                lengthCode = [(byte)(data.Length / 2 / 256), (byte)(data.Length / 2 % 256)];      
             }
-
-            var writeCommand = new byte[8 + data.Length];                                         //组合
+            //组合
+            var writeCommand = new byte[8 + data.Length];                                         
             Array.Copy(writeCommandCode, 0, writeCommand, 0, 2);
             Array.Copy(addressCommand.Value!, 0, writeCommand, 2, 4);
             Array.Copy(lengthCode, 0, writeCommand, 6, 2);
             Array.Copy(data, 0, writeCommand, 8, data.Length);
             var completeCommand = BuildCompleteCommand(writeCommand);
-
-            //TODO 完善格式
-            return new OperationResult<byte[]>(true, "", 0) { Value = completeCommand };
+            return OperationResult.CreateSuccessResult(completeCommand);
         }
 
         /// <summary>
@@ -240,13 +235,13 @@ namespace OmronCommunication.Profinet
         public virtual OperationResult<byte[]> AnalyzeFinsResponse(OperationResult<byte[]> result)
         {
             //TODO 该部分代码需要根据omron 通讯手册 5-1-3 END CODES 修改
-            if (result.Value!.Length > 14)                                                        //正确的返回，至少包含 fins header. command code. end code 共 14字节 
+            //正确的返回，至少包含 fins header. command code. end code 共 14字节 
+            if (result.Value!.Length > 14)                                                        
             {
-                //有返回数据
-                //拆分出数据
-                var newbuff = new byte[result.Value.Length - 14];
-                Array.Copy(result.Value, 14, newbuff, 0, newbuff.Length);
-                return new OperationResult<byte[]>(true) { Value = newbuff };
+                //有返回数据,拆分出数据
+                var buffer = new byte[result.Value.Length - 14];
+                Array.Copy(result.Value, 14, buffer, 0, buffer.Length);
+                return new OperationResult<byte[]>(true) { Value = buffer };
             }
             //无返回数据
             if (result.Value!.Length == 14)
