@@ -2,11 +2,16 @@
 using System.Net;
 using OmronCommunication;
 using System.IO;
+using OmronCommunication.TinyNet;
+using OmronCommunication.DataTypes;
+using OmronCommunication.src.TinyNet;
 
 namespace OmronCommunication.Profinet
 {
     public class FinsTcp : FinsCommand, IProfinet
     {
+        private readonly INetDevice _netdevice;
+
         private TcpClient? _tcpClient;
         private IPAddress? _localIP;
         private IPAddress? _remoteIP;
@@ -19,18 +24,24 @@ namespace OmronCommunication.Profinet
             0x00, 0x00, 0x00, 0x00, // 错误码
             0x00, 0x00, 0x00, 0x01  // 节点号
         };
+
         public FinsTcp(IPAddress remoteIP, int remotePort)
         {
+
             RemoteIP = remoteIP;
             RemotePort = remotePort;
+            var remoteAddress = new IPEndPoint(RemoteIP, RemotePort);
+            _netdevice = new NetUdpDevice(remoteAddress);
         }
         public FinsTcp(int localPort, IPAddress remoteIP, int remotePort)
         {
             LocalPort = localPort;
             RemoteIP = remoteIP;
             RemotePort = remotePort;
+            var remoteAddress = new IPEndPoint(RemoteIP, RemotePort);
+            _netdevice = new NetUdpDevice(remoteAddress);
         }
- 
+
         /// <summary>
         /// 上位机网络地址
         /// </summary>
@@ -65,109 +76,63 @@ namespace OmronCommunication.Profinet
         public int RemotePort { get; private set; } = 9600;
         public int ReceiveTimeout { get; set; } = 3000;
         public int ReceiveBufferSize { get; set; } = 1024;
+        public INetDevice NetDevice => _netdevice;
         /// <summary>
         /// Fins/Tcp握手信号，每次传输都要加上
         /// </summary>
         public byte[] HandSignal { get => _handSignal; }
 
         #region Connect
-        public void Connect()
+        /// <summary>
+        /// 建立连接
+        /// </summary>
+        public Task ConnectAsync()
         {
-            if (!_isActive)
-            {
-                if (LocalPort > 0)
-                {
-                    //指定一个端口
-                    var ipList = Dns.GetHostEntry(Dns.GetHostName()).AddressList;
-                    IPAddress? ipAddress = null;
-                    foreach(var ip in ipList)
-                    {
-                        if(ip.AddressFamily == AddressFamily.InterNetwork)
-                        {
-                            ipAddress = ip;
-                            break;
-                        }
-                    }
-                    var loclEP = new IPEndPoint(ipAddress!, LocalPort);
-                    _tcpClient = new TcpClient(loclEP);
-                }
-                else
-                {
-                    _tcpClient = new TcpClient();
-                }
-
-                var remoteEP = new IPEndPoint(RemoteIP!, RemotePort);
-                _tcpClient.Connect(remoteEP);   //阻塞
-                _isActive = true;
-
-                _tcpClient.Client.ReceiveTimeout = ReceiveTimeout;
-
-                //与PLC握手
-                SendAndReceive(HandSignal);
-            }
-            else
-            {
-                throw new Exception();
-            }
+            NetDevice.InitWithNoBind(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            NetDevice.ReceiveBufferSize = 1024;
+            return NetDevice.ConnectAsync();
         }
 
+        /// <summary>
+        /// 关闭并释放连接
+        /// </summary>
         public void Close()
         {
-            _tcpClient!.Close();
+            NetDevice.Close();
         }
 
         #endregion
 
-        #region Networkstream
+        #region Network
 
-        /// <summary>
-        /// 一次交互
-        /// </summary>
-        public OperationResult<byte[]> SendAndReceive(byte[] data)
-        {
-            var stream = _tcpClient!.GetStream();
-            stream.Write(data, 0, data.Length); //阻塞
-
-            var buff = new byte[ReceiveBufferSize];
-            var length = stream.Read(buff);  //阻塞
-            var buffer2 = new byte[length];
-            Array.Copy(buff,0, buffer2, 0, length);
-
-            return OperationResult.CreateSuccessResult(buffer2);
-        }
 
         #endregion
 
         #region Read Write
 
-        public OperationResult Write(string address, byte[] data, bool isBit)
+        public async Task Write(string address, byte[] data, bool isBit)
         {
             //BuildWriteCommand
             var command = BuildFinsWriteCommand(address, data, isBit);
-            if (!command.IsSuccess) return OperationResult.CreateFailResult<byte[]>(command);
 
             //ReadFromPLC
-            var response = SendAndReceive(command.Value);
-            if (!response.IsSuccess) return OperationResult.CreateFailResult<byte[]>(response);
+            var response = await NetDevice.ResqusetWaitResponse(command);
 
             //DataAnalysis
-            var result = AnalyzeFinsResponse(response);
-            return result;
+            AnalyzeFinsResponse(response);
         }
 
-        public OperationResult<byte[]> Read(string address, ushort length, bool isBit)
+        public async Task<byte[]> Read(string address, ushort length, bool isBit)
         {
             //BuildReadCommand
             var command = BuildFinsReadCommand(address, length, isBit);
-            if (!command.IsSuccess) return OperationResult.CreateFailResult<byte[]>(command);
 
             //ReadFromPLC
-            var response = SendAndReceive(command.Value);
-            if (!response.IsSuccess) return OperationResult.CreateFailResult<byte[]>(response);
+            var response = await NetDevice.ResqusetWaitResponse(command);
 
             //DataAnalysis
             var result = AnalyzeFinsResponse(response);
-            return result;
+            return result.Data;
         }
 
         #endregion
@@ -180,34 +145,34 @@ namespace OmronCommunication.Profinet
         public override byte[] BuildCompleteCommand(byte[] command)
         {
             //基于UDP Command构建 并在开头加上TCP握手信号16字节
-            var udpCommand= base.BuildCompleteCommand(command);
+            var udpCommand = base.BuildCompleteCommand(command);
             var completeCommand = new byte[udpCommand.Length + 16];
             Array.Copy(HandSignal, 0, completeCommand, 0, 16);
             Array.Copy(udpCommand, 0, completeCommand, 16, udpCommand.Length);
-            var dataLength = BitConverter.GetBytes(completeCommand.Length -8);
+            var dataLength = BitConverter.GetBytes(completeCommand.Length - 8);
             Array.Reverse(dataLength);
             Array.Copy(dataLength, 0, completeCommand, 4, dataLength.Length);
             completeCommand[11] = 0x02;
             return completeCommand;
         }
 
-        public override OperationResult<byte[]> AnalyzeFinsResponse(OperationResult<byte[]> result)
+        public override FinsResponse AnalyzeFinsResponse(byte[] result)
         {
             //TODO 错误码
             //正确的返回，至少包含 fins tcp header.fins command code. end code 共 30字节 
-            if (result.Value!.Length > 30)
+            if (result!.Length > 30)
             {
                 //有返回数据,拆分出数据
-                var buffer = new byte[result.Value.Length - 30];
-                Array.Copy(result.Value, 30, buffer, 0, buffer.Length);
-                return OperationResult.CreateSuccessResult(buffer);
+                var buffer = new byte[result.Length - 30];
+                Array.Copy(result, 30, buffer, 0, buffer.Length);
+                return new FinsResponse() { Data = buffer };
             }
             //无返回数据
-            if (result.Value!.Length == 30)
+            if (result!.Length == 30)
             {
-                return new OperationResult<byte[]>();
+                return FinsResponse.NormalSuccess;
             }
-            return new OperationResult<byte[]>(false);
+            return FinsResponse.NormalSuccess;
         }
     }
 }
