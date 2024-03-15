@@ -1,11 +1,76 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
+﻿
 namespace OmronCommunication.DataTypes
-{   
+{
+    public class FinsHeader
+    {
+        public FinsHeader()
+        {
+        }
+        /// <summary>
+        /// Information Control Field.
+        /// </summary>
+        public byte ICF { get; set; } = 0x80;
+        /// <summary>
+        /// RSV (Reserved) is always 00 hex.
+        /// </summary>
+        public byte RSV { get; set; } = 0x00;
+        /// <summary>
+        /// Gateway Count: Number of Bridges Passed Through.
+        /// When communicating across up to 8 network layers, set it to 07 hex.
+        /// Otherwise, set the GCT to 02 hex.
+        /// </summary>
+        public byte GCT { get; set; } = 0x02;
+        /// <summary>
+        /// Destination network address.
+        /// 00 hex: Local network.
+        /// 01 to 7F hex : Remote network address (decimal: 1 to 127).
+        /// </summary>
+        public byte DNA { get; set; } = 0x00;
+        /// <summary>
+        /// Destination node address.
+        /// </summary>
+        public byte DA1 { get; set; }
+        /// <summary>
+        /// Destination unit address.
+        /// 00 hex:CPU Unit.
+        /// FE hex: Controller Link Unit or Ethernet Unit connected to network.
+        /// 10 to 1F hex: CPU Bus Unit.
+        /// E1 hex: Inner Board.
+        /// </summary>
+        public byte DA2 { get; set; } = 0x00;
+        /// <summary>
+        /// Source network address.
+        /// 00 hex: Local network.
+        /// 01 to 7F hex: Remote network(1 to 127 decimal).
+        /// </summary>
+        public byte SNA { get; set; } = 0x00;
+        /// <summary>
+        /// Source node address.
+        /// 00 hex: Internal communications in PLC
+        /// 01 to 20 hex: Node address in Controller Link Network(1 to 32 decimal)
+        /// 01 to FE hex: Ethernet(1 to 254 decimal,for Ethernet Units with model numbers ending in ETN21)
+        /// </summary>
+        public byte SA1 { get; set; }
+        /// <summary>
+        /// Source unit address.
+        /// 00 hex: CPU Unit
+        /// </summary>
+        /// 10 to 1F hex: CPU Bus Unit
+        public byte SA2 { get; set; } = 0x00;
+        /// <summary>
+        /// Service ID. Used to identify the process generating the transmission. Set the SID to any number between 00 and FF
+        /// </summary>
+        public byte SID { get; set; } = 0x00;
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns>an array of 10 bytes that contains FINS header</returns>
+        public byte[] ToByteArray()
+        {
+            return [ICF, RSV, GCT, DNA, DA1, DA2, SNA, SA1, SA2, SID];
+        }
+    }
+
     /// <summary>
     /// I/O Memory Area Designation.
     /// Get the defination in《Omron Communications Commands REFERENCE MANUAL》section 5-2-2 (page 187).
@@ -45,24 +110,13 @@ namespace OmronCommunication.DataTypes
 
     }
 
-    public struct FinsResponse
-    {
-        public FinsResponse(bool isSuccess) { IsSuccess = isSuccess; }
-        public FinsResponse(FinsCommandCode cmd, FinsEndCode end)
-        {
-            CommandCode = cmd;
-            EndCode = end;
-        }
-        public bool IsSuccess { get; set; }
-        public FinsCommandCode CommandCode { get; }
-        public FinsEndCode EndCode { get; set; }
-        public byte[]? Data { get; set; }
-
-        // TODO
-        public static readonly FinsResponse NormalSuccess
-            = new FinsResponse(true);
-        public static readonly FinsResponse NormalFail
-            = new FinsResponse(false);
+    public class FinsResponse
+    {       
+        public FinsHeader Header = new FinsHeader();             // 10 bytes
+        public FinsCommandCode CommandCode;   // 2 bytes
+        public FinsEndCode EndCode;           // 2 bytes
+        public bool hasText;
+        public byte[]? Text;
     }
 
     public struct FinsCommandCode
@@ -80,7 +134,6 @@ namespace OmronCommunication.DataTypes
         // TODO 
     }
 
-    // TODO 
     public struct FinsEndCode
     {
         public FinsEndCode(byte mainCode,byte subCode)
@@ -91,6 +144,5 @@ namespace OmronCommunication.DataTypes
         public byte MainCode { get; set; }
         public byte SubCode { get; set; }
 
-        public static readonly FinsEndCode NormalCompletion = new FinsEndCode(0x00, 0x00);
     }
 }

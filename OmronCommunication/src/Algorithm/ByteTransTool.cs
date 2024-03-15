@@ -1,9 +1,53 @@
-﻿namespace OmronCommunication.Tools
+﻿using OmronCommunication.Algorithm;
+
+namespace OmronCommunication.Tools
 {
     public static class ByteTransTools
     {
         /// <summary>
-        /// 每两个字节高低位反转.ABCD => BADC
+        /// 将字节数据格式转换到小端序
+        /// </summary>
+        /// <param name="data">需要转换的字节数据</param>
+        /// <param name="byteOrder">传入字节数据的<see cref="ByteOrder"/>字节序</param>
+        /// <returns></returns>
+        public static byte[] TransToLittleEdian(byte[] data, ByteOrder byteOrder)
+        {
+            var buffer = new byte[data.Length];
+            switch (byteOrder)
+            {
+                case ByteOrder.ABCD:
+                    for (int i = 0; i < data.Length; i = i + 4)
+                    {
+                        buffer[i] = data[i + 3];
+                        buffer[i + 1] = data[i + 2];
+                        buffer[i + 2] = data[i + 1];
+                        buffer[i + 3] = data[i];
+                    }
+                    break; 
+                case ByteOrder.BADC:
+                    for (int i = 0; i < data.Length; i = i + 4)
+                    {
+                        buffer[i] = data[i + 2];
+                        buffer[i + 1] = data[i + 3];
+                        buffer[i + 2] = data[i];
+                        buffer[i + 3] = data[i + 1];
+                    }
+                    break;
+                case ByteOrder.CDAB:
+                    for (int i = 0; i < data.Length; i = i + 2)
+                    {
+                        buffer[i] = data[i + 1];
+                        buffer[i + 1] = data[i];
+                    }
+                    break;
+                case ByteOrder.DCBA:
+                    return data;
+            }
+            return buffer;
+        }
+
+        /// <summary>
+        /// 每两个字节高低位反转.BADC => ABCD
         /// </summary>
         /// <param name="data"></param>
         /// <returns></returns>
@@ -23,7 +67,7 @@
         }
 
         /// <summary>
-        /// 每四个字节高低位反转.ABCD => DCBA
+        /// 每四个字节高低位反转.DCBA => ABCD
         /// </summary>
         /// <param name="data"></param>
         /// <returns></returns>

@@ -3,7 +3,7 @@
 namespace OmronCommunication.Profinet
 {
 
-    public interface IProfinet
+    public interface IDevice
     {
         public Task ConnectAsync();
 

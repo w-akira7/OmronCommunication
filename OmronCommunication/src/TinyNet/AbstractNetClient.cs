@@ -1,24 +1,24 @@
-﻿using OmronCommunication.Internal.Logging;
-using OmronCommunication.src.TinyNet;
-using System.Net;
+﻿using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 
+
 namespace OmronCommunication.TinyNet
 {
-    public abstract class AbstractNetDevice : INetDevice
+    public abstract class AbstractNetClient : INetDevice
     {
+
         protected readonly string? _deviceID;
         protected readonly EndPoint? _deviceAddress;
         protected Socket? _coresocket;
         protected int _receiveBufferSize;
 
-        public AbstractNetDevice(EndPoint deviceAddress)
+        public AbstractNetClient(EndPoint deviceAddress)
         {
             _deviceAddress = deviceAddress;
         }
-        public AbstractNetDevice(EndPoint deviceAddress, string deviceID)
+        public AbstractNetClient(EndPoint deviceAddress, string deviceID)
         {
             _deviceID = deviceID;
             _deviceAddress = deviceAddress;
@@ -64,18 +64,6 @@ namespace OmronCommunication.TinyNet
             CoreSocket!.Close();
         }
 
-        public virtual async Task<byte[]> ResqusetWaitResponse(byte[] send)
-        {
-            await CoreSocket!.SendAsync(send);
-
-            var buffer = new byte[ReceiveBufferSize];
-            var rev = CoreSocket!.ReceiveAsync(buffer);
-
-            await rev;
-            var newbuffer = new byte[rev.Result];
-            Array.Copy(buffer, 0, newbuffer, 0, rev.Result);
-            return newbuffer;
-        }
-
+        public abstract Task<byte[]> RequestWaitResponse(byte[] send);
     }
 }

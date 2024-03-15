@@ -17,6 +17,6 @@ namespace OmronCommunication.TinyNet
         void InitWithBind(Socket socket);
         void InitWithBind(AddressFamily family, SocketType socketType, ProtocolType protocolType, IPEndPoint localAddress);
         void InitWithNoBind(AddressFamily family, SocketType socketType, ProtocolType protocolType);
-        public Task<byte[]> ResqusetWaitResponse(byte[] send);
+        public Task<byte[]> RequestWaitResponse(byte[] send);
     }
 }

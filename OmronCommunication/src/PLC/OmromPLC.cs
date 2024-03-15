@@ -1,7 +1,10 @@
 ﻿using OmronCommunication;
+using OmronCommunication.Algorithm;
 using OmronCommunication.Profinet;
+using OmronCommunication.TinyNet;
 using OmronCommunication.Tools;
 using System.Diagnostics.CodeAnalysis;
+using System.Net;
 
 namespace OmronCommunication.PLC
 {
@@ -10,15 +13,26 @@ namespace OmronCommunication.PLC
     /// </summary>
     public class OmromPLC : IPLC
     {
-        private readonly IProfinet? _device;
+        private readonly IDevice? _device;
+        private IByteTrans _byteTrans;
 
         /// <summary>
         /// 
         /// </summary>
-        /// <param name="device">选择设备的传输协议</param>
-        public OmromPLC([NotNull] IProfinet device) { _device = device; }
+        public OmromPLC(IPAddress remoteIP,int remotrPort, ProfinetType profinetType)
+        {
+            switch (profinetType)
+            {
+                case ProfinetType.FinsTcp:
+                    _device = new FinsTcpDevice(remoteIP, remotrPort);
+                    break;
+                case ProfinetType.FinsUdp:
+                    _device = new FinsUdpDevice(remoteIP, remotrPort);
+                    break;
+                default: throw new NotImplementedException();
+            }
+        }
 
-        #region Connect
         /// <summary>
         /// 初始化设备并建立连接
         /// </summary>
@@ -34,16 +48,13 @@ namespace OmronCommunication.PLC
             _device.Close();
         }
 
-        #endregion
-
-        #region Read & Write
         /// <summary>
         /// 读单个地址的BOOL值
         /// </summary>
         /// <param name="address">目标地址.格式: "C100.01" "D100.01"</param>
         /// <returns></returns>
         /// <exception cref="OperationReadFailedException"></exception>
-        public async Task<bool> ReadBool(string address)
+        public async Task<bool> ReadBoolAsync(string address)
         {
             var readResult = await _device.Read(address, 1, true);
              
@@ -51,28 +62,28 @@ namespace OmronCommunication.PLC
             return i[0];
         }
 
-        public async Task<bool[]> ReadBool(string address, ushort length)
+        public async Task<bool[]> ReadBoolAsync(string address, ushort length)
         {
             var readResult = await _device.Read(address, 1, true);
 
             var i = readResult.Select(eachByte => eachByte != 0x00 ? true : false).ToArray();
             return i;
         }
-
+   
         /// <summary>
         /// 读单个地址的SHORT值
         /// </summary>
         /// <param name="address">目标地址.格式: "D100" "H100"</param>
         /// <returns></returns>
         /// <exception cref="OperationReadFailedException"></exception>
-        public async Task<short> ReadShort(string address)
+        public async Task<short> ReadShortAsync(string address)
         {
             var readResult = await _device.Read(address, 1, false);
 
             readResult = ByteTransTools.ReverseWordByte(readResult);
             return ByteTransTools.WordToInt16(readResult);
         }
-        public async Task<short[]> ReadShort(string address, ushort length)
+        public async Task<short[]> ReadShortAsync(string address, ushort length)
         {
             var readResult =await _device.Read(address, length, false);
 
@@ -80,7 +91,8 @@ namespace OmronCommunication.PLC
             return ByteTransTools.WordsToInt16(readResult);
         }
 
-        public async Task<int> ReadInt(string address)
+
+        public async Task<int> ReadIntAsync(string address)
         {
             var readResult = await _device.Read(address, 1, false);
 
@@ -88,7 +100,7 @@ namespace OmronCommunication.PLC
             return ByteTransTools.DWordToInt32(readResult);
         }
 
-        public async Task<int[]> ReadInt(string address, ushort length)
+        public async Task<int[]> ReadIntAsync(string address, ushort length)
         {
             var readResult = await _device.Read(address, length, false);
 
@@ -97,7 +109,7 @@ namespace OmronCommunication.PLC
 
         }
 
-        public async Task<float> ReadFoalt(string address)
+        public async Task<float> ReadFoaltAsync(string address)
         {
             var readResult = await _device.Read(address, 1, true);
 
@@ -105,7 +117,7 @@ namespace OmronCommunication.PLC
             return ByteTransTools.DWordToFloat(readResult);
         }
 
-        public async Task<float[]> ReadFoalt(string address, ushort length)
+        public async Task<float[]> ReadFoaltAsync(string address, ushort length)
         {
             var readResult =await _device.Read(address, length, true);
 
@@ -113,21 +125,20 @@ namespace OmronCommunication.PLC
             return ByteTransTools.DWordsToFloat(readResult);
         }
 
-        public void WriteBool(string address, bool value)
+        public Task WriteAsync(string address, bool value)
         {
             throw new NotImplementedException();
         }
 
-        public void WriteInt(string address, int value)
+        public Task WriteAsync(string address, int value)
         {
             throw new NotImplementedException();
         }
 
-        public void WriteFoalt(string address, float value)
+        public Task WriteAsync(string address, float value)
         {
             throw new NotImplementedException();
         }
 
-        #endregion
     }
 }

@@ -1,45 +1,40 @@
 ﻿using System.Net.Sockets;
 using System.Net;
-using OmronCommunication;
-using System.IO;
 using OmronCommunication.TinyNet;
 using OmronCommunication.DataTypes;
-using OmronCommunication.src.TinyNet;
 
 namespace OmronCommunication.Profinet
 {
-    public class FinsTcp : FinsCommand, IProfinet
+    public sealed class FinsTcpDevice : AbstractFinsDevice, IDevice
     {
-        private readonly INetDevice _netdevice;
+        private readonly INetDevice _nettcpclient;
 
-        private TcpClient? _tcpClient;
         private IPAddress? _localIP;
         private IPAddress? _remoteIP;
-        private bool _isActive;
         private readonly byte[] _handSignal =
         {
-            0x46, 0x49, 0x4E, 0x53, // FINS
-            0x00, 0x00, 0x00, 0x0C, // 后面的命令长度
-            0x00, 0x00, 0x00, 0x00, // 命令码
-            0x00, 0x00, 0x00, 0x00, // 错误码
-            0x00, 0x00, 0x00, 0x01  // 节点号
+            0x46, 0x49, 0x4E, 0x53, 
+            0x00, 0x00, 0x00, 0x0C, 
+            0x00, 0x00, 0x00, 0x00, 
+            0x00, 0x00, 0x00, 0x00, 
+            0x00, 0x00, 0x00, 0x01  
         };
 
-        public FinsTcp(IPAddress remoteIP, int remotePort)
+        public FinsTcpDevice(IPAddress remoteIP, int remotePort)
         {
 
             RemoteIP = remoteIP;
             RemotePort = remotePort;
             var remoteAddress = new IPEndPoint(RemoteIP, RemotePort);
-            _netdevice = new NetUdpDevice(remoteAddress);
+            _nettcpclient = new NetUdpClient(remoteAddress);
         }
-        public FinsTcp(int localPort, IPAddress remoteIP, int remotePort)
+        public FinsTcpDevice(int localPort, IPAddress remoteIP, int remotePort)
         {
             LocalPort = localPort;
             RemoteIP = remoteIP;
             RemotePort = remotePort;
             var remoteAddress = new IPEndPoint(RemoteIP, RemotePort);
-            _netdevice = new NetUdpDevice(remoteAddress);
+            _nettcpclient = new NetUdpClient(remoteAddress);
         }
 
         /// <summary>
@@ -51,7 +46,7 @@ namespace OmronCommunication.Profinet
             private set
             {
                 _localIP = value;
-                SA1 = value.GetAddressBytes()[3];
+                Header.SA1 = value.GetAddressBytes()[3];
             }
         }
         /// <summary>
@@ -67,7 +62,7 @@ namespace OmronCommunication.Profinet
             private set
             {
                 _remoteIP = value;
-                DA1 = value.GetAddressBytes()[3];
+                Header.DA1 = value.GetAddressBytes()[3];
             }
         }
         /// <summary>
@@ -76,13 +71,12 @@ namespace OmronCommunication.Profinet
         public int RemotePort { get; private set; } = 9600;
         public int ReceiveTimeout { get; set; } = 3000;
         public int ReceiveBufferSize { get; set; } = 1024;
-        public INetDevice NetDevice => _netdevice;
         /// <summary>
         /// Fins/Tcp握手信号，每次传输都要加上
         /// </summary>
         public byte[] HandSignal { get => _handSignal; }
+        public override INetDevice NetDevice => _nettcpclient;
 
-        #region Connect
         /// <summary>
         /// 建立连接
         /// </summary>
@@ -101,41 +95,6 @@ namespace OmronCommunication.Profinet
             NetDevice.Close();
         }
 
-        #endregion
-
-        #region Network
-
-
-        #endregion
-
-        #region Read Write
-
-        public async Task Write(string address, byte[] data, bool isBit)
-        {
-            //BuildWriteCommand
-            var command = BuildFinsWriteCommand(address, data, isBit);
-
-            //ReadFromPLC
-            var response = await NetDevice.ResqusetWaitResponse(command);
-
-            //DataAnalysis
-            AnalyzeFinsResponse(response);
-        }
-
-        public async Task<byte[]> Read(string address, ushort length, bool isBit)
-        {
-            //BuildReadCommand
-            var command = BuildFinsReadCommand(address, length, isBit);
-
-            //ReadFromPLC
-            var response = await NetDevice.ResqusetWaitResponse(command);
-
-            //DataAnalysis
-            var result = AnalyzeFinsResponse(response);
-            return result.Data;
-        }
-
-        #endregion
 
         /// <summary>
         /// 按 TCP 传输组合完整的 FINS 数据包
@@ -158,21 +117,41 @@ namespace OmronCommunication.Profinet
 
         public override FinsResponse AnalyzeFinsResponse(byte[] result)
         {
-            //TODO 错误码
-            //正确的返回，至少包含 fins tcp header.fins command code. end code 共 30字节 
-            if (result!.Length > 30)
+            var response = new FinsResponse();
+            // a correct fins/tcp response contains at least 30 bytes including:handsignal, fins header, command code, end code 
+            if (result.Length >= 30)
             {
-                //有返回数据,拆分出数据
-                var buffer = new byte[result.Length - 30];
-                Array.Copy(result, 30, buffer, 0, buffer.Length);
-                return new FinsResponse() { Data = buffer };
+                // header
+                response.Header.ICF = result[16];
+                response.Header.RSV = result[17];
+                response.Header.GCT = result[18];
+                response.Header.DNA = result[19];
+                response.Header.DA1 = result[20];
+                response.Header.DA2 = result[21];
+                response.Header.SNA = result[22];
+                response.Header.SA1 = result[23];
+                response.Header.SA2 = result[24];
+                response.Header.SID = result[25];
+                // command code
+                response.CommandCode.MR = result[26];
+                response.CommandCode.SR = result[27];
+                // end code
+                response.EndCode.MainCode = result[28];
+                response.EndCode.SubCode = result[29];
+                // TODO 处理错误码
+
+                // text
+                response.hasText = false;
+                if (result.Length > 30)
+                {
+                    var buffer = new byte[result.Length - 30];
+                    Array.Copy(result, 14, buffer, 0, buffer.Length);
+                    response.Text = buffer;
+                    response.hasText = true;
+                }
+                return response;
             }
-            //无返回数据
-            if (result!.Length == 30)
-            {
-                return FinsResponse.NormalSuccess;
-            }
-            return FinsResponse.NormalSuccess;
+            throw new Exception("The response was not a fins response.");
         }
     }
 }
