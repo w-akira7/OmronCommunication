@@ -94,9 +94,10 @@ namespace OmronCommunication.PLC
 
         public async Task<int> ReadIntAsync(string address)
         {
-            var readResult = await _device.Read(address, 1, false);
+            var readResult = await _device.Read(address, 2, false);
 
             //TODO 字节翻转
+            readResult = ByteTransTools.ReverseWordByte(readResult);
             return ByteTransTools.DWordToInt32(readResult);
         }
 
@@ -105,23 +106,26 @@ namespace OmronCommunication.PLC
             var readResult = await _device.Read(address, length, false);
 
             //TODO 字节翻转
+            readResult = ByteTransTools.ReverseWordByte(readResult);
             return ByteTransTools.DWordsToInt32(readResult);
 
         }
 
         public async Task<float> ReadFoaltAsync(string address)
         {
-            var readResult = await _device.Read(address, 1, true);
+            var readResult = await _device.Read(address, 2, false);
 
             //TODO 字节翻转
+            readResult = ByteTransTools.ReverseWordByte(readResult);
             return ByteTransTools.DWordToFloat(readResult);
         }
 
         public async Task<float[]> ReadFoaltAsync(string address, ushort length)
         {
-            var readResult =await _device.Read(address, length, true);
+            var readResult =await _device.Read(address, length, false);
 
             //TODO 字节翻转
+            readResult = ByteTransTools.ReverseWordByte(readResult);
             return ByteTransTools.DWordsToFloat(readResult);
         }
 

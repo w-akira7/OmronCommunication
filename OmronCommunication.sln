@@ -5,6 +5,8 @@ VisualStudioVersion = 17.9.34607.119
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OmronCommunication", "OmronCommunication\OmronCommunication.csproj", "{74EB0708-0F37-418B-8B71-00E42760AFB5}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OmronCommunicationWinFormDemo", "OmronWinFormDemo\OmronCommunicationWinFormDemo.csproj", "{DD4E3146-B949-4746-AF3D-C45C1542E9F5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{74EB0708-0F37-418B-8B71-00E42760AFB5}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{74EB0708-0F37-418B-8B71-00E42760AFB5}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{74EB0708-0F37-418B-8B71-00E42760AFB5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DD4E3146-B949-4746-AF3D-C45C1542E9F5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DD4E3146-B949-4746-AF3D-C45C1542E9F5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DD4E3146-B949-4746-AF3D-C45C1542E9F5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DD4E3146-B949-4746-AF3D-C45C1542E9F5}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -80,11 +80,13 @@ namespace OmronCommunication.Profinet
         /// <summary>
         /// 建立连接
         /// </summary>
-        public Task ConnectAsync()
+        public async Task ConnectAsync()
         {
             NetDevice.InitWithNoBind(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             NetDevice.ReceiveBufferSize = 1024;
-            return NetDevice.ConnectAsync();
+            await NetDevice.ConnectAsync();
+
+            NetDevice.RequestWaitResponse(HandSignal);
         }
 
         /// <summary>
@@ -145,7 +147,7 @@ namespace OmronCommunication.Profinet
                 if (result.Length > 30)
                 {
                     var buffer = new byte[result.Length - 30];
-                    Array.Copy(result, 14, buffer, 0, buffer.Length);
+                    Array.Copy(result, 30, buffer, 0, buffer.Length);
                     response.Text = buffer;
                     response.hasText = true;
                 }

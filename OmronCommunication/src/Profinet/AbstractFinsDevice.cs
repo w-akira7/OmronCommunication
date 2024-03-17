@@ -174,11 +174,6 @@ namespace OmronCommunication.Profinet
         /// </summary>
         /// <returns></returns>
         public abstract FinsResponse AnalyzeFinsResponse(byte[] result);
-
-        
-        
-
-        
         
         public async Task Write(string address, byte[] data, bool isBit)
         {
@@ -191,7 +186,6 @@ namespace OmronCommunication.Profinet
             //DataAnalysis
             AnalyzeFinsResponse(response);
         }
-
                 
         public async Task<byte[]> Read(string address, ushort length, bool isBit)
         {
