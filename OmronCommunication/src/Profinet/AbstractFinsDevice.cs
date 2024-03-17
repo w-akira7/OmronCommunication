@@ -11,8 +11,8 @@ namespace OmronCommunication.Profinet
     {
         private readonly FinsHeader _header;
         public FinsHeader Header => _header;
-        public AbstractFinsDevice() { _header = new FinsHeader(); }
         public abstract INetDevice NetDevice { get; }
+        public AbstractFinsDevice() { _header = new FinsHeader(); }
 
         /// <summary>
         /// 解析地址。要求的输入格式“C100.12”、“D100”
@@ -77,9 +77,8 @@ namespace OmronCommunication.Profinet
                 var splits = address.Substring(1).Split('.', StringSplitOptions.RemoveEmptyEntries);
                 var addr = ushort.Parse(splits[0]);
                 buffer[1] = BitConverter.GetBytes(addr)[1];
-                buffer[2] = BitConverter.GetBytes(addr)[2];
-                buffer[3] = byte.Parse(splits[1]);
-
+                buffer[2] = BitConverter.GetBytes(addr)[0];
+                if(splits.Length > 1) buffer[3] = byte.Parse(splits[1]);
             }
             //字操作
             else
