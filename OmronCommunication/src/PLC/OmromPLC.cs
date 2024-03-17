@@ -40,6 +40,7 @@ namespace OmronCommunication.PLC
         {
             await _device.ConnectAsync();
         }
+
         /// <summary>
         /// 关闭连接并释放设备
         /// </summary>
@@ -83,6 +84,7 @@ namespace OmronCommunication.PLC
             readResult = ByteTransTools.ReverseWordByte(readResult);
             return ByteTransTools.WordToInt16(readResult);
         }
+
         public async Task<short[]> ReadShortAsync(string address, ushort length)
         {
             var readResult =await _device.Read(address, length, false);
@@ -91,12 +93,10 @@ namespace OmronCommunication.PLC
             return ByteTransTools.WordsToInt16(readResult);
         }
 
-
         public async Task<int> ReadIntAsync(string address)
         {
             var readResult = await _device.Read(address, 2, false);
 
-            //TODO 字节翻转
             readResult = ByteTransTools.ReverseWordByte(readResult);
             return ByteTransTools.DWordToInt32(readResult);
         }
@@ -105,7 +105,6 @@ namespace OmronCommunication.PLC
         {
             var readResult = await _device.Read(address, length, false);
 
-            //TODO 字节翻转
             readResult = ByteTransTools.ReverseWordByte(readResult);
             return ByteTransTools.DWordsToInt32(readResult);
 
@@ -115,7 +114,6 @@ namespace OmronCommunication.PLC
         {
             var readResult = await _device.Read(address, 2, false);
 
-            //TODO 字节翻转
             readResult = ByteTransTools.ReverseWordByte(readResult);
             return ByteTransTools.DWordToFloat(readResult);
         }
@@ -124,7 +122,6 @@ namespace OmronCommunication.PLC
         {
             var readResult =await _device.Read(address, length, false);
 
-            //TODO 字节翻转
             readResult = ByteTransTools.ReverseWordByte(readResult);
             return ByteTransTools.DWordsToFloat(readResult);
         }
