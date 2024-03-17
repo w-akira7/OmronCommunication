@@ -5,9 +5,9 @@ using System;
 using System.Reflection.PortableExecutable;
 using System.Security.Cryptography;
 
-namespace OmronCommunication.Profinet
+namespace OmronCommunication.Protocol
 {
-    public abstract class AbstractFinsDevice
+    public abstract class AbstractFinsDevice:IDevice
     {
         private readonly FinsHeader _header;
         public FinsHeader Header => _header;
@@ -110,7 +110,7 @@ namespace OmronCommunication.Profinet
         }
 
         /// <summary>
-        /// 组合基础的 FINS Read Command
+        /// 组合基础的 Fins Read Command
         /// </summary>
         /// <param name="address">起始地址</param>
         /// <param name="length">读取长度</param>
@@ -134,12 +134,11 @@ namespace OmronCommunication.Profinet
         }
 
         /// <summary>
-        /// 组合基础的 FINS Write Command
+        /// 组合基础的 Fins Write Command
         /// </summary>
         /// <param name="address"></param>
         /// <param name="data"></param>
         /// <param name="isBit"></param>
-        /// <returns></returns>
         public byte[] BuildFinsWriteCommand(string address, byte[] data, bool isBit)
         {
             //写存储器操作码，固定 01 02 hex
@@ -171,9 +170,12 @@ namespace OmronCommunication.Profinet
         /// <summary>
         /// 从fins response中解析出需要的信息
         /// </summary>
-        /// <returns></returns>
         public abstract FinsResponse AnalyzeFinsResponse(byte[] result);
-        
+
+        public abstract Task ConnectAsync();
+
+        public abstract void Close();
+
         public async Task Write(string address, byte[] data, bool isBit)
         {
             //BuildWriteCommand
@@ -198,6 +200,5 @@ namespace OmronCommunication.Profinet
             var result = AnalyzeFinsResponse(response);
             return result.Text;
         }
-   
     }
 }

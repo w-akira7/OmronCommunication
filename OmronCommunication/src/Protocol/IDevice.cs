@@ -1,6 +1,6 @@
 ﻿using OmronCommunication;
 
-namespace OmronCommunication.Profinet
+namespace OmronCommunication.Protocol
 {
 
     public interface IDevice
@@ -11,7 +11,7 @@ namespace OmronCommunication.Profinet
 
         public Task Write(string address, byte[] data, bool isBit);
 
-        public Task<byte[]> Read(string address,ushort length,bool isBit);
+        public Task<byte[]> Read(string address, ushort length, bool isBit);
 
     }
 }

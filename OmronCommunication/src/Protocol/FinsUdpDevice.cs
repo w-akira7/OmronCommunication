@@ -7,9 +7,9 @@ using OmronCommunication.Resource;
 using OmronCommunication.TinyNet;
 
 
-namespace OmronCommunication.Profinet
+namespace OmronCommunication.Protocol
 {
-    public sealed class FinsUdpDevice : AbstractFinsDevice, IDevice
+    public sealed class FinsUdpDevice : AbstractFinsDevice
     {
         private readonly INetDevice _netudpclient;
         private IPAddress? _localIP;
@@ -76,9 +76,11 @@ namespace OmronCommunication.Profinet
         /// <summary>
         /// 建立连接
         /// </summary>
-        public Task ConnectAsync()
+        public override Task ConnectAsync()
         {
            NetDevice.InitWithNoBind(AddressFamily.InterNetwork,SocketType.Dgram,ProtocolType.Udp);
+
+           //TODO 如果超出长度会出错，需要更完善的网络库
            NetDevice.ReceiveBufferSize = 1024;
            return NetDevice.ConnectAsync(); 
         }
@@ -86,7 +88,7 @@ namespace OmronCommunication.Profinet
         /// <summary>
         /// 关闭并释放连接
         /// </summary>
-        public void Close()
+        public override void Close()
         {
             NetDevice.Close();
         }

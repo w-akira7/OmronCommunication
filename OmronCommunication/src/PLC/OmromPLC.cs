@@ -1,10 +1,7 @@
-﻿using OmronCommunication;
-using OmronCommunication.Algorithm;
-using OmronCommunication.Profinet;
-using OmronCommunication.TinyNet;
-using OmronCommunication.Tools;
-using System.Diagnostics.CodeAnalysis;
-using System.Net;
+﻿using System.Net;
+using OmronCommunication.Internal.ByteTransfer;
+using OmronCommunication.Protocol;
+using OmronCommunication.Exceptions;
 
 namespace OmronCommunication.PLC
 {
@@ -13,15 +10,20 @@ namespace OmronCommunication.PLC
     /// </summary>
     public class OmromPLC : IPLC
     {
-        private readonly IDevice? _device;
-        private IByteTrans _byteTrans;
+        private readonly IDevice _device;
+        private readonly IByteTransfer _transfer;
 
         /// <summary>
-        /// 
+        /// 创建一个OMRON PLC的实例
         /// </summary>
-        public OmromPLC(IPAddress remoteIP,int remotrPort, ProfinetType profinetType)
+        /// <param name="remoteIP">PLC IP地址</param>
+        /// <param name="remotrPort">PLC 端口号</param>
+        /// <param name="profinet">PLC 以太网协议</param>
+        /// <param name="byteOrder">PLC 字节序</param>
+        /// <exception cref="InvalidProfinetException">使用了一个非 OMROM FINS 协议</exception>
+        public OmromPLC(IPAddress remoteIP,int remotrPort, ProfinetType profinet, ByteOrder byteOrder = ByteOrder.CDAB)
         {
-            switch (profinetType)
+            switch (profinet)
             {
                 case ProfinetType.FinsTcp:
                     _device = new FinsTcpDevice(remoteIP, remotrPort);
@@ -29,8 +31,9 @@ namespace OmronCommunication.PLC
                 case ProfinetType.FinsUdp:
                     _device = new FinsUdpDevice(remoteIP, remotrPort);
                     break;
-                default: throw new NotImplementedException();
+                default: throw new InvalidProfinetException("请使用Fins协议");
             }
+            _transfer = new ReverseByteTransfer(byteOrder);
         }
 
         /// <summary>
@@ -49,97 +52,102 @@ namespace OmronCommunication.PLC
             _device.Close();
         }
 
-        /// <summary>
-        /// 读单个地址的BOOL值
-        /// </summary>
-        /// <param name="address">目标地址.格式: "C100.01" "D100.01"</param>
-        /// <returns></returns>
-        /// <exception cref="OperationReadFailedException"></exception>
         public async Task<bool> ReadBoolAsync(string address)
         {
-            var readResult = await _device.Read(address, 1, true);
-             
-            var i = readResult.Select(eachByte => eachByte != 0x00 ? true : false).ToArray();
+            var result = await _device.Read(address, 1, true);
+            var i = result.Select(eachByte => eachByte != 0x00 ? true : false).ToArray();
             return i[0];
         }
 
         public async Task<bool[]> ReadBoolAsync(string address, ushort length)
         {
-            var readResult = await _device.Read(address, 1, true);
-
-            var i = readResult.Select(eachByte => eachByte != 0x00 ? true : false).ToArray();
+            var result = await _device.Read(address, length, true);
+            var i = result.Select(eachByte => eachByte != 0x00 ? true : false).ToArray();
             return i;
         }
    
-        /// <summary>
-        /// 读单个地址的SHORT值
-        /// </summary>
-        /// <param name="address">目标地址.格式: "D100" "H100"</param>
-        /// <returns></returns>
-        /// <exception cref="OperationReadFailedException"></exception>
         public async Task<short> ReadShortAsync(string address)
         {
-            var readResult = await _device.Read(address, 1, false);
-
-            readResult = ByteTransTools.ReverseWordByte(readResult);
-            return ByteTransTools.WordToInt16(readResult);
+            var result = await _device.Read(address, 1, false);
+            return _transfer.ToInt16(result)[0];
         }
 
         public async Task<short[]> ReadShortAsync(string address, ushort length)
         {
-            var readResult =await _device.Read(address, length, false);
-
-            readResult = ByteTransTools.ReverseWordByte(readResult);
-            return ByteTransTools.WordsToInt16(readResult);
+            var result = await _device.Read(address, length, false);
+            return _transfer.ToInt16(result);
         }
 
         public async Task<int> ReadIntAsync(string address)
         {
-            var readResult = await _device.Read(address, 2, false);
-
-            readResult = ByteTransTools.ReverseWordByte(readResult);
-            return ByteTransTools.DWordToInt32(readResult);
+            var result = await _device.Read(address, 2, false);
+            return _transfer.ToInt32(result)[0];
         }
 
         public async Task<int[]> ReadIntAsync(string address, ushort length)
         {
-            var readResult = await _device.Read(address, length, false);
-
-            readResult = ByteTransTools.ReverseWordByte(readResult);
-            return ByteTransTools.DWordsToInt32(readResult);
-
+            var result = await _device.Read(address, (ushort)(length * 2), false);
+            return _transfer.ToInt32(result);
         }
 
         public async Task<float> ReadFoaltAsync(string address)
         {
-            var readResult = await _device.Read(address, 2, false);
-
-            readResult = ByteTransTools.ReverseWordByte(readResult);
-            return ByteTransTools.DWordToFloat(readResult);
+            var result = await _device.Read(address, 2, false);
+           return _transfer.ToSingle(result)[0];
         }
 
         public async Task<float[]> ReadFoaltAsync(string address, ushort length)
         {
-            var readResult =await _device.Read(address, length, false);
-
-            readResult = ByteTransTools.ReverseWordByte(readResult);
-            return ByteTransTools.DWordsToFloat(readResult);
+            var result =await _device.Read(address, (ushort)(length * 2), false);
+            return _transfer.ToSingle(result);
         }
 
         public Task WriteAsync(string address, bool value)
         {
-            throw new NotImplementedException();
+            var buffer = _transfer.GetBytes(value);
+            return _device.Write(address, buffer, true);
+        }
+
+        public Task WriteAsync(string address, bool[] value)
+        {
+            var buffer = _transfer.GetBytes(value);
+            return _device.Write(address, buffer, true);
+        }
+
+        public Task WriteAsync(string address, short value)
+        {
+            var buffer = _transfer.GetBytes(value);
+            return _device.Write(address, buffer, false);
+        }
+
+        public Task WriteAsync(string address, short[] value)
+        {
+            var buffer = _transfer.GetBytes(value);
+            return _device.Write(address, buffer, false);
         }
 
         public Task WriteAsync(string address, int value)
         {
-            throw new NotImplementedException();
+            var buffer = _transfer.GetBytes(value);
+            return _device.Write(address, buffer, false);
+        }
+
+        public Task WriteAsync(string address, int[] value)
+        {
+            var buffer = _transfer.GetBytes(value);
+            return _device.Write(address, buffer, false);
         }
 
         public Task WriteAsync(string address, float value)
         {
-            throw new NotImplementedException();
+            var buffer = _transfer.GetBytes(value);
+            return _device.Write(address, buffer, false);
         }
 
+        public Task WriteAsync(string address, float[] value)
+        {
+            var buffer = _transfer.GetBytes(value);
+            return _device.Write(address, buffer, false);
+        }
     }
 }

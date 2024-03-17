@@ -3,9 +3,9 @@ using System.Net;
 using OmronCommunication.TinyNet;
 using OmronCommunication.DataTypes;
 
-namespace OmronCommunication.Profinet
+namespace OmronCommunication.Protocol
 {
-    public sealed class FinsTcpDevice : AbstractFinsDevice, IDevice
+    public sealed class FinsTcpDevice : AbstractFinsDevice
     {
         private readonly INetDevice _nettcpclient;
 
@@ -80,23 +80,28 @@ namespace OmronCommunication.Profinet
         /// <summary>
         /// 建立连接
         /// </summary>
-        public async Task ConnectAsync()
+        public override async Task ConnectAsync()
         {
             NetDevice.InitWithNoBind(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+
+            //TODO 如果超出长度会出错，需要更完善的网络库
             NetDevice.ReceiveBufferSize = 1024;
+            // 建立TCP连接
             await NetDevice.ConnectAsync();
 
-            NetDevice.RequestWaitResponse(HandSignal);
+            // 与PLC握手
+            await NetDevice.RequestWaitResponse(HandSignal);
+
+            // TODO 完善握手返回消息的解析
         }
 
         /// <summary>
         /// 关闭并释放连接
         /// </summary>
-        public void Close()
+        public override void Close()
         {
             NetDevice.Close();
         }
-
 
         /// <summary>
         /// 按 TCP 传输组合完整的 FINS 数据包
