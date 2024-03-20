@@ -4,7 +4,7 @@ using System.Net.Sockets;
 
 namespace OmronCommunication.TinyNet
 {
-    public interface INetDevice 
+    public interface ITinyNetDevice
     {
         string? DeviceID { get; }
         EndPoint? DeviceAddress { get; }
@@ -17,6 +17,8 @@ namespace OmronCommunication.TinyNet
         void InitWithBind(Socket socket);
         void InitWithBind(AddressFamily family, SocketType socketType, ProtocolType protocolType, IPEndPoint localAddress);
         void InitWithNoBind(AddressFamily family, SocketType socketType, ProtocolType protocolType);
-        public Task<byte[]> RequestWaitResponse(byte[] send);
+        public Task<byte[]> RequestWaitResponseAsync(byte[] send);
+        public byte[] RequestWaitResponse(byte[] send);
+
     }
 }

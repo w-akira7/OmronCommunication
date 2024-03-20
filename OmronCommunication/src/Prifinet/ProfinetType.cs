@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace OmronCommunication.Protocol
+namespace OmronCommunication.Profinet
 {
     public enum ProfinetType
     {

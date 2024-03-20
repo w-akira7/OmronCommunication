@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace OmronCommunication.TinyNet
 {
-    internal class NetTcpServer
+    internal class TinyTcpServer
     {
     }
 }

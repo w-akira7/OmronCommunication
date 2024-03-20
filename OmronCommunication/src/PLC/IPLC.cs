@@ -4,6 +4,7 @@ namespace OmronCommunication.PLC
 {
     public interface IPLC
     {
+        public string Name { get; }
         /// <summary>
         /// 读单个位地址的BOOL值
         /// </summary>

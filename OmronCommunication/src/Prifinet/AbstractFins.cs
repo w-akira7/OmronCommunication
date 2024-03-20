@@ -1,25 +1,64 @@
 ﻿using OmronCommunication;
-using OmronCommunication.DataTypes;
 using OmronCommunication.TinyNet;
 using System;
+using System.Diagnostics.CodeAnalysis;
+using System.Net;
 using System.Reflection.PortableExecutable;
 using System.Security.Cryptography;
 
-namespace OmronCommunication.Protocol
+namespace OmronCommunication.Profinet
 {
-    public abstract class AbstractFinsDevice:IDevice
+    public abstract class AbstractFins : AbstractFinsHeader, IProfinet
     {
-        private readonly FinsHeader _header;
-        public FinsHeader Header => _header;
-        public abstract INetDevice NetDevice { get; }
-        public AbstractFinsDevice() { _header = new FinsHeader(); }
+        private IPAddress? _localIP;
+        private IPAddress? _remoteIP;
+
+        public abstract AbstractTinyClient Client { get; protected set; }
+        public abstract int Timeout { get; set; }
+
+        public AbstractFins([NotNull] IPAddress remoteIP, [NotNull] int remotePort)
+        {
+            RemoteIP = remoteIP;
+            RemotePort = remotePort;
+        }
 
         /// <summary>
-        /// 解析地址。要求的输入格式“C100.12”、“D100”
+        /// 上位机网络地址
         /// </summary>
-        /// <param name="address"></param>
-        /// <returns></returns>
-        /// <exception cref="Exception"></exception>
+        public IPAddress? LocalIP
+        {
+            get => _localIP;
+            protected set
+            {
+                _localIP = value;
+                SA1 = value!.GetAddressBytes()[3];
+            }
+        }
+
+        /// <summary>
+        /// 上位机的端口
+        /// </summary>
+        public int LocalPort { get; protected set; }
+
+        /// <summary>
+        /// 目标网络设备的IP地址
+        /// </summary>
+        public IPAddress? RemoteIP
+        {
+            get => _remoteIP;
+            private set
+            {
+                _remoteIP = value;
+                DA1 = value!.GetAddressBytes()[3];
+            }
+        }
+
+        /// <summary>
+        /// 目标网络设备的端口, omron plc 默认 9600
+        /// </summary>
+        public int RemotePort { get; private set; } = 9600;
+
+        // 解析地址。要求的输入格式“C100.12”、“D100”
         protected FinsAddressTypes AnalyzeAddressType(string address)
         {
             switch (address[0])
@@ -59,13 +98,8 @@ namespace OmronCommunication.Protocol
             }
         }
 
-        /// <summary>
-        /// Parse the address into byte data in FINS format. "C0010.13" Bit 13 of CIO 0010, i.e., 0x30 0x00 0x0A 0x0D
-        /// </summary>
-        /// <param name="address">目标起始地址</param>
-        /// <param name="isBit">是否位操作</param>
-        /// <returns>地址码：一个4字节的字节数组,包括 I/O Memory area code 和 Beginning address</returns>
-        /// <exception cref="Exception"></exception> 
+
+        // Parse the address into byte data in FINS format. "C0010.13" Bit 13 of CIO 0010, i.e., 0x30 0x00 0x0A 0x0D
         protected byte[] AnalyzeAddress(string address, bool isBit)
         {
             var buffer = new byte[4];
@@ -91,16 +125,13 @@ namespace OmronCommunication.Protocol
             return buffer;
         }
 
-        /// <summary>
-        /// 按 UDP 传输方式将命令与 FINS 头组合成完整的 FINS 数据包,在 TCP 和 Hostlink 中重写
-        /// </summary>
-        /// <param name="command">command code and text</param>
-        /// <returns>完整的可发送的FINS包</returns>
+
+        // 按 UDP 传输方式将命令与 FINS 头组合成完整的 FINS 数据包,在 TCP 中重写
         public virtual byte[] BuildCompleteCommand(byte[] command)
         {
-            var header = Header.ToByteArray();
+            byte[] header = [ICF, RSV, GCT, DNA, DA1, DA2, SNA, SA1, SA2, SID];
 
-            Header.SID++;
+            SID++;
 
             //build complete command 
             var result = new byte[10 + command.Length];
@@ -109,13 +140,8 @@ namespace OmronCommunication.Protocol
             return result;
         }
 
-        /// <summary>
-        /// 组合基础的 Fins Read Command
-        /// </summary>
-        /// <param name="address">起始地址</param>
-        /// <param name="length">读取长度</param>
-        /// <param name="isBit">是否字操作</param>
-        /// <returns></returns>
+
+        // 组合基础的 Fins Read Command
         public byte[] BuildFinsReadCommand(string address, ushort length, bool isBit)
         {
             //读存储器操作码，固定 01 01 hex
@@ -133,12 +159,7 @@ namespace OmronCommunication.Protocol
             return BuildCompleteCommand(readCommand);
         }
 
-        /// <summary>
-        /// 组合基础的 Fins Write Command
-        /// </summary>
-        /// <param name="address"></param>
-        /// <param name="data"></param>
-        /// <param name="isBit"></param>
+        // 组合基础的 Fins Write Command
         public byte[] BuildFinsWriteCommand(string address, byte[] data, bool isBit)
         {
             //写存储器操作码，固定 01 02 hex
@@ -167,38 +188,49 @@ namespace OmronCommunication.Protocol
             return BuildCompleteCommand(writeCommand);
         }
 
-        /// <summary>
-        /// 从fins response中解析出需要的信息
-        /// </summary>
+        public void Write(string address, byte[] data, bool isBit)
+        {
+            var command = BuildFinsWriteCommand(address, data, isBit);
+
+            var response = Client.RequestWaitResponse(command);
+
+            AnalyzeFinsResponse(response);
+        }
+
+        public byte[] Read(string address, ushort length, bool isBit)
+        {
+            var command = BuildFinsReadCommand(address, length, isBit);
+
+            var response = Client.RequestWaitResponse(command);
+
+            var result = AnalyzeFinsResponse(response);   
+            return result.Text;
+        }
+
+        public async Task WriteAsync(string address, byte[] data, bool isBit)
+        {
+            var command = BuildFinsWriteCommand(address, data, isBit);
+
+            var response = await Client.RequestWaitResponseAsync(command);
+
+            AnalyzeFinsResponse(response);
+        }
+                
+        public async Task<byte[]> ReadAsync(string address, ushort length, bool isBit)
+        {
+            var command = BuildFinsReadCommand(address, length, isBit);
+
+            var response = await Client.RequestWaitResponseAsync(command);
+
+            var result = AnalyzeFinsResponse(response);
+            return result.Text;
+        }
+
+        // 从fins response中解析出需要的信息,交给finstcp finsudp分别实现
         public abstract FinsResponse AnalyzeFinsResponse(byte[] result);
 
         public abstract Task ConnectAsync();
 
         public abstract void Close();
-
-        public async Task Write(string address, byte[] data, bool isBit)
-        {
-            //BuildWriteCommand
-            var command = BuildFinsWriteCommand(address, data, isBit);
-
-            //ReadFromPLC
-            var response = await NetDevice.RequestWaitResponse(command);
-
-            //DataAnalysis
-            AnalyzeFinsResponse(response);
-        }
-                
-        public async Task<byte[]> Read(string address, ushort length, bool isBit)
-        {
-            //BuildReadCommand
-            var command = BuildFinsReadCommand(address, length, isBit);
-
-            //ReadFromPLC
-            var response = await NetDevice.RequestWaitResponse(command);
-
-            //DataAnalysis
-            var result = AnalyzeFinsResponse(response);
-            return result.Text;
-        }
     }
 }

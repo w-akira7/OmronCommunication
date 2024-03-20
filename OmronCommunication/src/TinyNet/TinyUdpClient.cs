@@ -9,14 +9,19 @@ using System.Threading.Tasks;
 
 namespace OmronCommunication.TinyNet
 {
-    public class NetUdpClient : AbstractNetClient, INetDevice
+    public class TinyUdpClient : AbstractTinyClient
     {
-        public NetUdpClient(EndPoint deviceAddress) : base(deviceAddress)
+        public TinyUdpClient(EndPoint deviceAddress) : base(deviceAddress)
         {
 
         }
 
-        public override async Task<byte[]> RequestWaitResponse(byte[] send)
+        public override byte[] RequestWaitResponse(byte[] send)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override async Task<byte[]> RequestWaitResponseAsync(byte[] send)
         {
             await CoreSocket!.SendAsync(send);
 

@@ -1,12 +1,10 @@
 ﻿using System.Net;
 using System.Net.Sockets;
-using System.Text;
-using System.Threading.Tasks;
 
 
 namespace OmronCommunication.TinyNet
 {
-    public abstract class AbstractNetClient : INetDevice
+    public abstract class AbstractTinyClient : ITinyNetDevice
     {
 
         protected readonly string? _deviceID;
@@ -14,11 +12,11 @@ namespace OmronCommunication.TinyNet
         protected Socket? _coresocket;
         protected int _receiveBufferSize;
 
-        public AbstractNetClient(EndPoint deviceAddress)
+        public AbstractTinyClient(EndPoint deviceAddress)
         {
             _deviceAddress = deviceAddress;
         }
-        public AbstractNetClient(EndPoint deviceAddress, string deviceID)
+        public AbstractTinyClient(EndPoint deviceAddress, string deviceID)
         {
             _deviceID = deviceID;
             _deviceAddress = deviceAddress;
@@ -64,6 +62,7 @@ namespace OmronCommunication.TinyNet
             CoreSocket!.Close();
         }
 
-        public abstract Task<byte[]> RequestWaitResponse(byte[] send);
+        public abstract Task<byte[]> RequestWaitResponseAsync(byte[] send);
+        public abstract byte[] RequestWaitResponse(byte[] send);
     }
 }
