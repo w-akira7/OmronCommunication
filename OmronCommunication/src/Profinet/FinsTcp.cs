@@ -19,7 +19,9 @@ namespace OmronCommunication.Profinet
         /// 响应超时设置(ms)
         /// </summary>
         public override int Timeout { get; set; } = 3000;
+
         public int ReceiveBufferSize { get; set; } = 1024;
+
         /// <summary>
         /// Fins/Tcp握手信号
         /// </summary>
@@ -94,11 +96,11 @@ namespace OmronCommunication.Profinet
                 response.SA2 = result[24];
                 response.SID = result[25];
                 // command code
-                response.CommandCode.MR = result[26];
-                response.CommandCode.SR = result[27];
+                response.commandCode.MR = result[26];
+                response.commandCode.SR = result[27];
                 // end code
-                response.EndCode.MainCode = result[28];
-                response.EndCode.SubCode = result[29];
+                response.endCode.MainCode = result[28];
+                response.endCode.SubCode = result[29];
                 // TODO 处理错误码
 
                 // text

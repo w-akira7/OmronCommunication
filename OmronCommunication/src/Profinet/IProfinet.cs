@@ -1,5 +1,4 @@
-﻿using OmronCommunication;
-
+﻿
 namespace OmronCommunication.Profinet
 {
 

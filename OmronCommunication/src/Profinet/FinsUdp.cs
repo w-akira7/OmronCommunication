@@ -1,8 +1,5 @@
 ﻿using System.Net;
 using System.Net.Sockets;
-using System.Reflection.PortableExecutable;
-using OmronCommunication;
-using OmronCommunication.Resource;
 using OmronCommunication.TinyNet;
 
 
@@ -61,11 +58,11 @@ namespace OmronCommunication.Profinet
                 response.SA2 = result[8];
                 response.SID = result[9];
                 // command code
-                response.CommandCode.MR = result[10];
-                response.CommandCode.SR = result[11];
+                response.commandCode.MR = result[10];
+                response.commandCode.SR = result[11];
                 // end code
-                response.EndCode.MainCode = result[12];
-                response.EndCode.SubCode = result[13];
+                response.endCode.MainCode = result[12];
+                response.endCode.SubCode = result[13];
                 // TODO 处理错误码
 
                 // text

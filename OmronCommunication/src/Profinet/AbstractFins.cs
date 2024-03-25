@@ -1,10 +1,6 @@
-﻿using OmronCommunication;
-using OmronCommunication.TinyNet;
-using System;
+﻿using OmronCommunication.TinyNet;
 using System.Diagnostics.CodeAnalysis;
 using System.Net;
-using System.Reflection.PortableExecutable;
-using System.Security.Cryptography;
 
 namespace OmronCommunication.Profinet
 {

@@ -39,8 +39,8 @@
 
     public class FinsResponse : AbstractFinsHeader
     {
-        public FinsCommandCode CommandCode;
-        public FinsEndCode EndCode;
+        public FinsCommandCode commandCode;
+        public FinsEndCode endCode;
         public bool hasText;
         public byte[]? Text;
     }
